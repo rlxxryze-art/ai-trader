@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Alpha IA – Portefeuille géré par Gemini</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { colors: { ink: '#0B0C10' } } } }</script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="text-slate-200 antialiased min-h-screen">
+  <div class="bg-orbs" aria-hidden="true"><span class="orb o1"></span><span class="orb o2"></span><span class="orb o3"></span></div>
+
+  <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-6 lg:py-10">
+    <header class="flex flex-wrap items-center justify-between gap-4 mb-8">
+      <div class="flex items-center gap-3">
+        <div class="logo" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
+        </div>
+        <div>
+          <h1 class="display text-xl font-semibold text-white">Alpha IA</h1>
+          <p class="text-sm text-slate-400">Gemini investit 50 € virtuels chaque jour</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3 flex-wrap">
+        <div class="pill" role="status"><span id="dot" class="dot"></span><span id="status-text">Connexion…</span></div>
+        <div class="text-sm text-slate-400 hidden sm:block">Prochaine analyse <span id="next-run" class="text-slate-200 num">–</span></div>
+        <button id="run-btn" class="btn-neon">Lancer l’analyse</button>
+      </div>
+    </header>
+
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
+      <div class="glass p-6 lg:p-8 lg:col-span-2 flex flex-col justify-between min-h-[210px]">
+        <p class="text-sm text-slate-400">Valeur du portefeuille</p>
+        <div id="kpi-total" class="display hero-num text-5xl sm:text-7xl font-semibold num mt-2">–</div>
+        <div class="flex flex-wrap items-center gap-3 mt-5">
+          <span id="kpi-pnl" class="pill num">–</span>
+          <span class="text-sm text-slate-400">sur <span id="kpi-deposited" class="text-slate-200 num">–</span> déposés</span>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 lg:grid-cols-1 gap-5">
+        <div class="glass p-5">
+          <p class="text-sm text-slate-400">Cash dispo</p>
+          <div id="kpi-cash" class="display text-2xl sm:text-3xl font-semibold text-white num mt-1">–</div>
+        </div>
+        <div class="glass p-5">
+          <p class="text-sm text-slate-400">Investi</p>
+          <div id="kpi-invested" class="display text-2xl sm:text-3xl font-semibold text-white num mt-1">–</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
+      <div class="glass p-6 lg:col-span-2">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="display font-semibold text-white">Évolution du portefeuille</h2>
+          <div class="flex items-center gap-4 text-xs text-slate-400">
+            <span class="flex items-center gap-1.5"><i class="inline-block w-3 h-0.5 bg-violet-400"></i>Valeur</span>
+            <span class="flex items-center gap-1.5"><i class="inline-block w-3 border-t border-dashed border-slate-400"></i>Capital déposé</span>
+          </div>
+        </div>
+        <div class="relative h-[320px]"><canvas id="chart" aria-label="Graphique d’évolution du portefeuille" role="img"></canvas></div>
+      </div>
+      <div class="glass p-6 lg:col-span-1">
+        <h2 class="display font-semibold text-white mb-4">Dernières décisions de l’IA</h2>
+        <div id="decisions" class="decisions"></div>
+      </div>
+    </section>
+
+    <section class="glass p-2 sm:p-4 overflow-hidden">
+      <h2 class="display font-semibold text-white px-3 pt-3 sm:px-2 sm:pt-1 mb-2">Actifs détenus</h2>
+      <div class="overflow-x-auto">
+        <table class="tbl w-full text-sm">
+          <thead><tr><th>Actif</th><th>Quantité</th><th>Prix</th><th>Valeur</th><th>PNL</th></tr></thead>
+          <tbody id="holdings"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <p class="text-center text-xs text-slate-500 mt-8">Simulation avec de l’argent virtuel. Ce n’est pas un conseil en investissement.</p>
+  </main>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
