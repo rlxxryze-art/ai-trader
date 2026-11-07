@@ -43,7 +43,6 @@ async def lifespan(_app):
                       next_run_time=now + timedelta(seconds=10), coalesce=True, max_instances=1)
     scheduler.start()
     
-    # Rattrapage : serveur (re)démarré après l’heure prévue sans cycle du jour
     with db.conn() as c:
         last = db.get_account(c)["last_credit_date"]
     if last != now.date().isoformat() and (now.hour, now.minute) >= (RUN_H, RUN_M):
@@ -52,7 +51,7 @@ async def lifespan(_app):
     yield
     scheduler.shutdown(wait=False)
 
-# --- 3. INITIALISATION DE FASTAPI ET DOSSIER STATIC ---
+# --- 3. INITIALISATION DE FASTAPI ---
 app = FastAPI(title="Alpha IA", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")
 
