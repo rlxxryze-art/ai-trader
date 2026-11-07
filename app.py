@@ -25,7 +25,7 @@ import trade_bot
 # --- 1. DÉFINITION DES VARIABLES GLOBALES ---
 BASE = Path(__file__).resolve().parent
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN")
-SNAP_MIN = 60
+SNAP_MIN = 5
 TZ = trade_bot.TZ
 RUN_H = 17
 RUN_M = 0
