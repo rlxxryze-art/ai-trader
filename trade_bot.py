@@ -412,7 +412,7 @@ def run_daily_cycle(manual=False):
 
             cursor = c.cursor()
             cursor.execute(
-                "SELECT COUNT(*) FROM decisions WHERE ts LIKE ?", (f"{today}%",)
+                "SELECT COUNT(*) FROM decisions WHERE ts LIKE %s", (f"{today}%",)
             )
             analyses_today = cursor.fetchone()[0]
 
