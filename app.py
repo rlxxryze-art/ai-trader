@@ -1,7 +1,7 @@
-"""Serveur FastAPI + planificateur APScheduler.
-Lancement dev  : uvicorn app:app --reload
-Lancement prod : gunicorn app:app -k uvicorn.workers.UvicornWorker -w 1 -b 0.0.0.0:$PORT
-(-w 1 est important : un seul worker = un seul planificateur.)"""
+
+
+"""Serveur FastAPI + planificateur APScheduler."""
+
 import hmac
 import logging
 import os
@@ -11,37 +11,20 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()  # doit précéder l’import de trade_bot (lecture des variables d’environnement)
+load_dotenv()  # doit précéder l'import de trade_bot
 
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
-from apscheduler.triggers.date import DateTrigger
-from apscheduler.triggers.interval import IntervalTrigger
+# >>> C'EST ICI QU'IL FAUT INITIALISER 'app' EN PREMIER <<<
 from fastapi import BackgroundTasks, FastAPI, Header, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-import db
-import trade_bot
+app = FastAPI()  # <--- C'est cette ligne qui définit 'app' pour tout le fichier !
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s : %(message)s")
 
-BASE = Path(__file__).parent
-ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "")
-RUN_H, RUN_M = (int(x) for x in os.getenv("DAILY_RUN_TIME", "10:00").split(":"))
-SNAP_MIN = int(os.getenv("SNAPSHOT_MINUTES", "30"))
-TZ = trade_bot.TZ
-
-scheduler = BackgroundScheduler(timezone=TZ)
-
-from fastapi import FastAPI
-
-app = FastAPI()
-
-# ---- Ajoute cette route ici ----
+# Ensuite seulement, tu mets tes routes plus bas :
 @app.get("/health")
 def health_check():
-    return {"status": "ok"}
+  return {"status": "ok"}
 # --------------------------------
 
 # Le reste de ton code (par exemple mount du dossier static, tes routes, etc.)
