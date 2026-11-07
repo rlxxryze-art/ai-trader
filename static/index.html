@@ -12,8 +12,11 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="/static/style.css">
 </head>
-<body class="text-slate-200 antialiased min-h-screen" data-mood="flat">
+<body class="text-slate-200 antialiased min-h-screen" data-mood="flat" data-aura="synthwave">
+  <div id="boot" class="boot" aria-hidden="true"><pre id="boot-log"></pre></div>
   <div class="bg-orbs" aria-hidden="true"><span class="orb o1"></span><span class="orb o2"></span><span class="orb o3"></span></div>
+  <div class="holo" aria-hidden="true"></div>
+  <canvas id="fx" class="fx" aria-hidden="true"></canvas>
 
   <div class="ticker" aria-label="Cours des actifs détenus"><div id="ticker" class="tk-track"></div></div>
 
@@ -31,6 +34,9 @@
       <div class="flex items-center gap-3 flex-wrap">
         <div class="pill" role="status"><span id="dot" class="dot"></span><span id="status-text">Connexion…</span></div>
         <div class="text-sm text-slate-400 hidden sm:block">Prochaine analyse <span id="next-run" class="text-slate-200 num">–</span></div>
+        <select id="aura" class="aura" aria-label="Thème d’aura" data-sfx><option value="synthwave">Aura Synthwave</option><option value="matrix">Aura Matrix</option><option value="cyberpunk">Aura Cyberpunk</option></select>
+        <button id="focus-btn" class="btn-ghost" aria-pressed="false" data-sfx>Deep Focus</button>
+        <div id="radar" class="radar" aria-hidden="true"></div>
         <button id="run-btn" class="btn-neon" data-sfx>Lancer l’analyse</button>
       </div>
     </header>
@@ -48,7 +54,7 @@
         <div id="rank" class="glass p-5 flex items-center gap-4">
           <div class="hexw"><div class="hex"><span id="rank-n" class="display text-2xl font-bold text-white">1</span></div></div>
           <div class="flex-1 min-w-0">
-            <p class="text-sm text-slate-400">Rang actuel</p>
+            <div class="flex items-center justify-between gap-2"><p class="text-sm text-slate-400">Rang actuel</p><span id="streak" class="streak zero" title="Trades rentables d’affilée">🔥 0x</span></div>
             <div id="rank-name" class="display text-xl font-semibold text-white truncate">–</div>
             <div class="bar mt-2"><i id="rank-bar"></i></div>
             <p id="rank-next" class="text-xs text-slate-500 mt-1.5">–</p>
@@ -62,7 +68,7 @@
     </section>
 
     <section class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
-      <div class="glass p-6 lg:col-span-2">
+      <div id="chart-card" class="glass keep p-6 lg:col-span-2">
         <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
           <h2 class="display font-semibold text-white">Évolution du portefeuille</h2>
           <div class="flex items-center gap-4 text-xs text-slate-400">
@@ -71,7 +77,7 @@
             <span class="flex items-center gap-1.5"><i class="inline-block w-2 h-2 rounded-full bg-emerald-400"></i>Achat<i class="inline-block w-2 h-2 rounded-full bg-rose-400 ml-1"></i>Vente</span>
           </div>
         </div>
-        <div class="relative h-[320px]"><canvas id="chart" aria-label="Graphique d’évolution du portefeuille avec les achats et ventes de l’IA" role="img"></canvas></div>
+        <div class="cwrap relative h-[320px]"><canvas id="chart" aria-label="Graphique d’évolution du portefeuille avec les achats et ventes de l’IA" role="img"></canvas></div>
       </div>
       <div class="grid gap-5">
         <div class="glass p-6 text-center">
@@ -94,7 +100,7 @@
     </section>
 
     <section class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
-      <div class="glass p-6 lg:col-span-2">
+      <div id="term-card" class="glass keep p-6 lg:col-span-2">
         <h2 class="display font-semibold text-white mb-4">Terminal IA</h2>
         <div id="term" class="term" role="log" aria-live="off"></div>
       </div>
@@ -104,9 +110,15 @@
       </div>
     </section>
 
-    <section class="mb-2">
-      <h2 class="display font-semibold text-white mb-4 px-1">Actifs détenus</h2>
-      <div id="holdings" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+    <section class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-2">
+      <div class="glass p-6">
+        <h2 class="display font-semibold text-white mb-3">Répartition</h2>
+        <div id="ring"></div>
+      </div>
+      <div class="lg:col-span-2">
+        <h2 class="display font-semibold text-white mb-4 px-1">Actifs détenus</h2>
+        <div id="holdings" class="heat"></div>
+      </div>
     </section>
 
     <p class="text-center text-xs text-slate-500 mt-8">Simulation avec de l’argent virtuel. Ce n’est pas un conseil en investissement.</p>
