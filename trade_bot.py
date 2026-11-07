@@ -466,6 +466,3 @@ def run_daily_cycle(manual=False):
     finally:
         state["running"] = False
         _cycle_lock.release()
-@app.get("/health")
-def health_check():
-    return {"status": "ok"}
