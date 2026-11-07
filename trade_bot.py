@@ -21,7 +21,7 @@ log = logging.getLogger("trade_bot")
 TZ = ZoneInfo(os.getenv("TIMEZONE", "Europe/Paris"))
 DAILY_BUDGET = float(os.getenv("DAILY_BUDGET_EUR", "50"))
 MAX_POSITION_PCT = float(os.getenv("MAX_POSITION_PCT", "40"))
-MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
 CACHE_TTL = 60
 
 # Univers investissable : Actions
