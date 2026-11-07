@@ -47,8 +47,7 @@ STOCKS = {
     "AIR.PA": ("Airbus", "EUR"),
     "TTE.PA": ("TotalEnergies", "EUR"),
 }
-    
-    
+
 # Cryptomonnaies (limitées aux principales pour éviter les erreurs 429 CoinGecko)
 CRYPTOS = {
     "BTC": ("Bitcoin", "bitcoin"),
@@ -139,39 +138,47 @@ def _fetch_cryptos():
     headers = {}
     if os.getenv("COINGECKO_API_KEY"):
         headers["x-cg-demo-api-key"] = os.environ["COINGECKO_API_KEY"]
-    try:
-        r = requests.get(
-            "https://api.coingecko.com/api/v3/coins/markets",
-            params={
-                "vs_currency": "eur",
-                "ids": ",".join(v[1] for v in CRYPTOS.values()),
-                "price_change_percentage": "24h,7d",
-            },
-            headers=headers,
-            timeout=15,
-        )
-        r.raise_for_status()
-        by_id = {x["id"]: x for x in r.json()}
-    except Exception as e:
-        log.warning("CoinGecko : %s", e)
-        return {}
-    out = {}
-    for sym, (name, cid) in CRYPTOS.items():
-        x = by_id.get(cid)
-        if not x or not x.get("current_price"):
-            continue
-        out[sym] = {
-            "name": name,
-            "type": "crypto",
-            "price": float(x["current_price"]),
-            "change_1d_pct": round(
-                x.get("price_change_percentage_24h_in_currency") or 0, 2
-            ),
-            "change_7d_pct": round(
-                x.get("price_change_percentage_7d_in_currency") or 0, 2
-            ),
-        }
-    return out
+    
+    # Tentatives avec pause en cas de Too Many Requests (429)
+    for attempt in range(3):
+        try:
+            r = requests.get(
+                "https://api.coingecko.com/api/v3/coins/markets",
+                params={
+                    "vs_currency": "eur",
+                    "ids": ",".join(v[1] for v in CRYPTOS.values()),
+                    "price_change_percentage": "24h,7d",
+                },
+                headers=headers,
+                timeout=15,
+            )
+            if r.status_code == 429:
+                log.warning("CoinGecko 429 Too Many Requests, nouvelle tentative dans %ds...", 10 * (attempt + 1))
+                time.sleep(10 * (attempt + 1))
+                continue
+            r.raise_for_status()
+            by_id = {x["id"]: x for x in r.json()}
+            out = {}
+            for sym, (name, cid) in CRYPTOS.items():
+                x = by_id.get(cid)
+                if not x or not x.get("current_price"):
+                    continue
+                out[sym] = {
+                    "name": name,
+                    "type": "crypto",
+                    "price": float(x["current_price"]),
+                    "change_1d_pct": round(
+                        x.get("price_change_percentage_24h_in_currency") or 0, 2
+                    ),
+                    "change_7d_pct": round(
+                        x.get("price_change_percentage_7d_in_currency") or 0, 2
+                    ),
+                }
+            return out
+        except Exception as e:
+            log.warning("CoinGecko tentative %d/3 : %s", attempt + 1, e)
+            time.sleep(5)
+    return {}
 
 
 def get_market(force=False):
@@ -228,29 +235,28 @@ def _parse_json(text):
 
 
 def ask_gemini(payload):
-  key = os.getenv("GEMINI_API_KEY")
-  if not key:
-    raise RuntimeError("GEMINI_API_KEY manquante dans l’environnement")
-  genai.configure(api_key=key)
-  model = genai.GenerativeModel(
-      MODEL_NAME,
-      system_instruction=SYSTEM_PROMPT,
-      generation_config=genai.GenerationConfig(
-          temperature=0.4, response_mime_type="application/json"
-      ),
-  )
-  last = None
-  for attempt in range(3):
-    try:
-      # Ligne qui envoie la requête à Gemini
-      resp = model.generate_content(json.dumps(payload, ensure_ascii=False))
-      return _parse_json(resp.text)
-    except Exception as e:
-      last = e
-      log.warning("Gemini tentative %d/3 : %s", attempt + 1, e)
-      # Pause de 30 secondes minimum pour laisser souffler l'API en cas de quota dépassé
-      time.sleep(30 * (attempt + 1))
-  raise RuntimeError(f"Gemini a échoué : {last}")
+    key = os.getenv("GEMINI_API_KEY")
+    if not key:
+        raise RuntimeError("GEMINI_API_KEY manquante dans l’environnement")
+    genai.configure(api_key=key)
+    model = genai.GenerativeModel(
+        MODEL_NAME,
+        system_instruction=SYSTEM_PROMPT,
+        generation_config=genai.GenerationConfig(
+            temperature=0.4, response_mime_type="application/json"
+        ),
+    )
+    last = None
+    for attempt in range(3):
+        try:
+            resp = model.generate_content(json.dumps(payload, ensure_ascii=False))
+            return _parse_json(resp.text)
+        except Exception as e:
+            last = e
+            log.warning("Gemini tentative %d/3 : %s", attempt + 1, e)
+            time.sleep(30 * (attempt + 1))
+    raise RuntimeError(f"Gemini a échoué : {last}")
+
 
 def build_payload(val, market):
     return {
@@ -410,11 +416,11 @@ def run_daily_cycle(manual=False):
             account = db.get_account(c)
             already_credited = account["last_credit_date"] == today
 
-            cursor = c.cursor()
-            cursor.execute(
-                "SELECT COUNT(*) FROM decisions WHERE ts LIKE %s", (f"{today}%",)
-            )
-            analyses_today = cursor.fetchone()[0]
+            with c.cursor() as cursor:
+                cursor.execute(
+                    "SELECT COUNT(*) FROM decisions WHERE ts LIKE %s", (f"{today}%",)
+                )
+                analyses_today = cursor.fetchone()["count"]
 
             if analyses_today >= 3 and not manual:
                 log.info("Limite de 3 analyses par jour atteinte.")
