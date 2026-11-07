@@ -468,4 +468,4 @@ def run_daily_cycle(manual=False):
         _cycle_lock.release()
 @app.get("/health")
 def health_check():
-  return {"status": "ok"}
+    return {"status": "ok"}
