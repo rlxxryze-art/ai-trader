@@ -21,7 +21,7 @@ log = logging.getLogger("trade_bot")
 TZ = ZoneInfo(os.getenv("TIMEZONE", "Europe/Paris"))
 DAILY_BUDGET = float(os.getenv("DAILY_BUDGET_EUR", "50"))
 MAX_POSITION_PCT = float(os.getenv("MAX_POSITION_PCT", "40"))
-MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
 CACHE_TTL = 60
 
 # Univers investissable : Actions
@@ -36,36 +36,19 @@ STOCKS = {
     "NFLX": ("Netflix", "USD"),
     "AMD": ("AMD", "USD"),
     "INTC": ("Intel", "USD"),
-    "QCOM": ("Qualcomm", "USD"),
-    "ADBE": ("Adobe", "USD"),
     "CRM": ("Salesforce", "USD"),
     "PYPL": ("PayPal", "USD"),
     "UBER": ("Uber Technologies", "USD"),
     "ABNB": ("Airbnb", "USD"),
     "PLTR": ("Palantir", "USD"),
     "COIN": ("Coinbase", "USD"),
-    "SHOP": ("Shopify", "USD"),
-    "SNOW": ("Snowflake", "USD"),
-    "JPM": ("JPMorgan Chase", "USD"),
-    "V": ("Visa", "USD"),
-    "MA": ("Mastercard", "USD"),
     "JNJ": ("Johnson & Johnson", "USD"),
-    "UNH": ("UnitedHealth", "USD"),
-    "XOM": ("ExxonMobil", "USD"),
-    "CVX": ("Chevron", "USD"),
-    "WMT": ("Walmart", "USD"),
-    "PG": ("Procter & Gamble", "USD"),
-    "DIS": ("Walt Disney", "USD"),
     "MC.PA": ("LVMH", "EUR"),
     "AIR.PA": ("Airbus", "EUR"),
     "TTE.PA": ("TotalEnergies", "EUR"),
-    "OR.PA": ("L’Oréal", "EUR"),
-    "ASML.AS": ("ASML", "EUR"),
-    "SAP.DE": ("SAP", "EUR"),
-    "SIE.DE": ("Siemens", "EUR"),
-    "ENEL.MI": ("Enel", "EUR"),
 }
-
+    
+    
 # Cryptomonnaies (limitées aux principales pour éviter les erreurs 429 CoinGecko)
 CRYPTOS = {
     "BTC": ("Bitcoin", "bitcoin"),
@@ -245,28 +228,29 @@ def _parse_json(text):
 
 
 def ask_gemini(payload):
-    key = os.getenv("GEMINI_API_KEY")
-    if not key:
-        raise RuntimeError("GEMINI_API_KEY manquante dans l’environnement")
-    genai.configure(api_key=key)
-    model = genai.GenerativeModel(
-        MODEL_NAME,
-        system_instruction=SYSTEM_PROMPT,
-        generation_config=genai.GenerationConfig(
-            temperature=0.4, response_mime_type="application/json"
-        ),
-    )
-    last = None
-    for attempt in range(3):
-        try:
-            resp = model.generate_content(json.dumps(payload, ensure_ascii=False))
-            return _parse_json(resp.text)
-        except Exception as e:
-            last = e
-            log.warning("Gemini tentative %d/3 : %s", attempt + 1, e)
-            time.sleep(20 * (attempt + 1))
-    raise RuntimeError(f"Gemini a échoué : {last}")
-
+  key = os.getenv("GEMINI_API_KEY")
+  if not key:
+    raise RuntimeError("GEMINI_API_KEY manquante dans l’environnement")
+  genai.configure(api_key=key)
+  model = genai.GenerativeModel(
+      MODEL_NAME,
+      system_instruction=SYSTEM_PROMPT,
+      generation_config=genai.GenerationConfig(
+          temperature=0.4, response_mime_type="application/json"
+      ),
+  )
+  last = None
+  for attempt in range(3):
+    try:
+      # Ligne qui envoie la requête à Gemini
+      resp = model.generate_content(json.dumps(payload, ensure_ascii=False))
+      return _parse_json(resp.text)
+    except Exception as e:
+      last = e
+      log.warning("Gemini tentative %d/3 : %s", attempt + 1, e)
+      # Pause de 30 secondes minimum pour laisser souffler l'API en cas de quota dépassé
+      time.sleep(30 * (attempt + 1))
+  raise RuntimeError(f"Gemini a échoué : {last}")
 
 def build_payload(val, market):
     return {
