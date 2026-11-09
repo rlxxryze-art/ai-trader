@@ -473,3 +473,40 @@ def run_daily_cycle(manual=False):
     finally:
         state["running"] = False
         _cycle_lock.release()
+
+def execute_manual_buy(symbol, amount_eur):
+    symbol = str(symbol).upper().strip()
+    market = get_market()
+    m = market.get(symbol)
+    
+    if not m:
+        return {"error": "Actif introuvable ou prix indisponible."}
+        
+    with db.conn() as c:
+        cash = db.get_account(c)["cash"]
+        if amount_eur < 1:
+            return {"error": "Le montant minimum est de 1 €."}
+        if amount_eur > cash:
+            return {"error": f"Fonds insuffisants. Cash dispo: {cash:.2f} €"}
+            
+        price = m["price"]
+        qty = amount_eur / price
+        ts = db.now_iso()
+        reason = "Achat manuel (God Mode)"
+        
+        # Exécuter l'achat
+        db.apply_buy(c, symbol, m["name"], m["type"], qty, price, amount_eur, reason, ts)
+        
+        # Enregistrer la décision pour l'historique
+        order = {
+            "action": "BUY", "symbol": symbol, "name": m["name"], 
+            "amount_eur": amount_eur, "quantity": qty, "price_eur": price, 
+            "status": "executed", "note": "Intervention manuelle"
+        }
+        db.add_decision(c, "Le mode manuel (God Mode) a pris le contrôle.", "manual", [order], "ok")
+        
+        # Mettre à jour la valeur totale
+        v = valuate(c, market)
+        db.add_snapshot(c, v["cash"], v["holdings_value"], v["total"], v["deposited"])
+        
+        return {"status": "ok", "message": f"Achat de {amount_eur} € de {symbol} validé !"}
