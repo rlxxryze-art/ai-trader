@@ -6,6 +6,7 @@ import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
+from pydantic import BaseModel
 
 from dotenv import load_dotenv
 
