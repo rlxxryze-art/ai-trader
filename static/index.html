@@ -12,11 +12,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <link rel="stylesheet" href="/static/style.css">
 </head>
-<body class="text-slate-200 antialiased min-h-screen" data-mood="flat" data-aura="synthwave">
-  <div id="boot" class="boot" aria-hidden="true"><pre id="boot-log"></pre></div>
+<body class="text-slate-200 antialiased min-h-screen" data-mood="flat">
   <div class="bg-orbs" aria-hidden="true"><span class="orb o1"></span><span class="orb o2"></span><span class="orb o3"></span></div>
-  <div class="holo" aria-hidden="true"></div>
-  <canvas id="fx" class="fx" aria-hidden="true"></canvas>
 
   <div class="ticker" aria-label="Cours des actifs détenus"><div id="ticker" class="tk-track"></div></div>
 
@@ -34,9 +31,6 @@
       <div class="flex items-center gap-3 flex-wrap">
         <div class="pill" role="status"><span id="dot" class="dot"></span><span id="status-text">Connexion…</span></div>
         <div class="text-sm text-slate-400 hidden sm:block">Prochaine analyse <span id="next-run" class="text-slate-200 num">–</span></div>
-        <select id="aura" class="aura" aria-label="Thème d’aura" data-sfx><option value="synthwave">Aura Synthwave</option><option value="matrix">Aura Matrix</option><option value="cyberpunk">Aura Cyberpunk</option></select>
-        <button id="focus-btn" class="btn-ghost" aria-pressed="false" data-sfx>Deep Focus</button>
-        <div id="radar" class="radar" aria-hidden="true"></div>
         <button id="run-btn" class="btn-neon" data-sfx>Lancer l’analyse</button>
       </div>
     </header>
@@ -54,7 +48,7 @@
         <div id="rank" class="glass p-5 flex items-center gap-4">
           <div class="hexw"><div class="hex"><span id="rank-n" class="display text-2xl font-bold text-white">1</span></div></div>
           <div class="flex-1 min-w-0">
-            <div class="flex items-center justify-between gap-2"><p class="text-sm text-slate-400">Rang actuel</p><span id="streak" class="streak zero" title="Trades rentables d’affilée">🔥 0x</span></div>
+            <p class="text-sm text-slate-400">Rang actuel</p>
             <div id="rank-name" class="display text-xl font-semibold text-white truncate">–</div>
             <div class="bar mt-2"><i id="rank-bar"></i></div>
             <p id="rank-next" class="text-xs text-slate-500 mt-1.5">–</p>
@@ -68,7 +62,7 @@
     </section>
 
     <section class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
-      <div id="chart-card" class="glass keep p-6 lg:col-span-2">
+      <div class="glass p-6 lg:col-span-2">
         <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
           <h2 class="display font-semibold text-white">Évolution du portefeuille</h2>
           <div class="flex items-center gap-4 text-xs text-slate-400">
@@ -77,7 +71,7 @@
             <span class="flex items-center gap-1.5"><i class="inline-block w-2 h-2 rounded-full bg-emerald-400"></i>Achat<i class="inline-block w-2 h-2 rounded-full bg-rose-400 ml-1"></i>Vente</span>
           </div>
         </div>
-        <div class="cwrap relative h-[320px]"><canvas id="chart" aria-label="Graphique d’évolution du portefeuille avec les achats et ventes de l’IA" role="img"></canvas></div>
+        <div class="relative h-[320px]"><canvas id="chart" aria-label="Graphique d’évolution du portefeuille avec les achats et ventes de l’IA" role="img"></canvas></div>
       </div>
       <div class="grid gap-5">
         <div class="glass p-6 text-center">
@@ -99,8 +93,52 @@
       </div>
     </section>
 
+    <!-- Panneau Trading Manuel : visible uniquement quand le God Mode est actif -->
+    <section id="manual-panel" class="drawer" aria-labelledby="manual-title" aria-hidden="true" inert>
+      <div class="drawer-inner">
+        <form id="buy-form" class="glass manual p-6 lg:p-7" novalidate autocomplete="off">
+          <div class="flex flex-wrap items-start justify-between gap-3 mb-5">
+            <div class="flex items-center gap-3">
+              <div class="manual-ic" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
+              </div>
+              <div>
+                <h2 id="manual-title" class="display font-semibold text-white">Trading manuel</h2>
+                <p class="text-sm text-slate-400">Achat direct, sans passer par Gemini</p>
+              </div>
+            </div>
+            <span class="pill">Cash dispo <b id="manual-cash" class="num text-amber-200 font-semibold">–</b></span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-4 items-end">
+            <div>
+              <label for="buy-symbol" class="lbl">Symbole</label>
+              <input id="buy-symbol" name="symbol" class="field" type="text" placeholder="BTC, AAPL, SOL…" maxlength="15" autocapitalize="characters" spellcheck="false" required>
+            </div>
+            <div>
+              <label for="buy-amount" class="lbl">Montant</label>
+              <div class="field-wrap">
+                <input id="buy-amount" name="amount_eur" class="field" type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="25,50" required>
+                <span class="suffix" aria-hidden="true">€</span>
+              </div>
+            </div>
+            <button id="buy-btn" type="submit" class="btn-amber" data-sfx>Exécuter l’ordre</button>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2 mt-4" role="group" aria-label="Montants rapides">
+            <span class="text-xs text-slate-500 mr-1">Rapide</span>
+            <button type="button" class="qchip" data-amt="10" data-sfx>10 €</button>
+            <button type="button" class="qchip" data-amt="25" data-sfx>25 €</button>
+            <button type="button" class="qchip" data-amt="50" data-sfx>50 €</button>
+            <button type="button" class="qchip" data-amt="max" data-sfx>Tout le cash</button>
+          </div>
+          <p id="buy-error" class="text-sm down mt-3 hidden" role="alert"></p>
+        </form>
+      </div>
+    </section>
+
     <section class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
-      <div id="term-card" class="glass keep p-6 lg:col-span-2">
+      <div class="glass p-6 lg:col-span-2">
         <h2 class="display font-semibold text-white mb-4">Terminal IA</h2>
         <div id="term" class="term" role="log" aria-live="off"></div>
       </div>
@@ -110,15 +148,9 @@
       </div>
     </section>
 
-    <section class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-2">
-      <div class="glass p-6">
-        <h2 class="display font-semibold text-white mb-3">Répartition</h2>
-        <div id="ring"></div>
-      </div>
-      <div class="lg:col-span-2">
-        <h2 class="display font-semibold text-white mb-4 px-1">Actifs détenus</h2>
-        <div id="holdings" class="heat"></div>
-      </div>
+    <section class="mb-2">
+      <h2 class="display font-semibold text-white mb-4 px-1">Actifs détenus</h2>
+      <div id="holdings" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
     </section>
 
     <p class="text-center text-xs text-slate-500 mt-8">Simulation avec de l’argent virtuel. Ce n’est pas un conseil en investissement.</p>
