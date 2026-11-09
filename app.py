@@ -7,6 +7,9 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from pathlib import Path
 from pydantic import BaseModel
+class BuyRequest(BaseModel):
+    symbol: str
+    amount_eur: float
 
 from dotenv import load_dotenv
 
