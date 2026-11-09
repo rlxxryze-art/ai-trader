@@ -57,7 +57,6 @@ CRYPTOS = {
     "XRP": ("XRP", "ripple"),
 }
 
-SYSTEM_PROMPT = """Tu es ALPHA, un gérant de portefeuille quantitatif, rigoureux et prudent.
 
 SYSTEM_PROMPT = """Tu es ALPHA, un gérant de portefeuille quantitatif, rigoureux et prudent.
 
