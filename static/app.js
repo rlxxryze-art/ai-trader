@@ -7,10 +7,10 @@ const tone = (n) => (n > 0.005 ? 'up' : n < -0.005 ? 'down' : 'flat');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const ACTION_FR = { BUY: 'Achat', SELL: 'Vente', HOLD: 'Conserver' };
 const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const css = (v) => getComputedStyle(document.body).getPropertyValue(v).trim();
 
 let chart = null, timer = null, nextRun = null, running = false, wasRunning = false, tags = {}, seen = null;
 const cache = {};
+let cashNow = 0;
 const setHTML = (el, key, html) => { if (cache[key] !== html) { cache[key] = html; el.innerHTML = html; } };
 
 /* ---------- Micro-sons FX : colle tes URLs audio ici ---------- */
@@ -67,7 +67,7 @@ function logDecisions(items) {
     d.orders.forEach((o) => {
       if (o.status === 'executed') {
         log(`${ACTION_FR[o.action] || o.action} validé : ${o.name} ${eur(o.amount_eur)}`, 'ok');
-        if (seen !== null && fresh.length && wasLoaded) { toast(`⚡ Action exécutée par l’IA : ${ACTION_FR[o.action] || o.action} ${o.name}`, 'ok'); sfx('success'); fxBoost(); }
+        if (seen !== null && fresh.length && wasLoaded) { toast(`⚡ Action exécutée par l’IA : ${ACTION_FR[o.action] || o.action} ${o.name}`, 'ok'); sfx('success'); }
       } else if (o.status === 'rejected') log(`Ordre refusé : ${o.name}${o.note ? ' – ' + o.note : ''}`, 'warn');
     });
   });
@@ -108,15 +108,17 @@ function setStatus(kind) {
 
 function renderSummary(s) {
   running = s.running;
-  setNum('kpi-total', eur(s.total)); setNum('kpi-cash', eur(s.cash)); setNum('kpi-invested', eur(s.holdings_value));
+  $('kpi-total').textContent = eur(s.total);
+  $('kpi-cash').textContent = eur(s.cash);
+  $('kpi-invested').textContent = eur(s.holdings_value);
   $('kpi-deposited').textContent = eur(s.deposited);
+  cashNow = s.cash ?? 0; $('manual-cash').textContent = eur(s.cash);
   const p = $('kpi-pnl');
   p.textContent = s.deposited ? `${pct(s.pnl_pct)} (${s.pnl_eur >= 0 ? '+' : ''}${eur(s.pnl_eur)})` : 'Aucun dépôt pour l’instant';
   p.className = `pill num ${s.deposited ? (tone(s.pnl_eur) === 'up' ? 'pill-up' : tone(s.pnl_eur) === 'down' ? 'pill-down' : '') : ''}`;
   document.body.dataset.mood = s.deposited ? tone(s.pnl_eur) : 'flat';
   nextRun = s.next_run ? new Date(s.next_run) : null;
   $('run-btn').disabled = running;
-  $('radar').classList.toggle('on', running); if (running) boost = Math.max(boost, 2.5);
   $('run-btn').textContent = running ? 'Analyse en cours…' : 'Lancer l’analyse';
   setStatus(running ? 'busy' : 'live');
   if (running && !wasRunning) log('Analyse en cours… Gemini scanne le marché', 'dim');
@@ -124,21 +126,17 @@ function renderSummary(s) {
 }
 
 function renderHoldings(rows) {
-  const tot = rows.reduce((a, h) => a + h.value, 0) || 1;
   setHTML($('holdings'), 'h', !rows.length
     ? `<p class="text-sm text-slate-500 col-span-full text-center py-10">Aucun actif pour l’instant. Lancez une analyse pour que l’IA investisse les premiers 50 €.</p>`
-    : rows.map((h) => {
-      const sh = h.value / tot, c = sh > .5 ? 6 : sh > .3 ? 4 : sh > .18 ? 3 : 2, t = tone(h.pnl_pct);
-      const rgb = t === 'up' ? '16,185,129' : t === 'down' ? '244,63,94' : '148,163,184', a = (.1 + Math.min(Math.abs(h.pnl_pct) / 5, 1) * .4).toFixed(2);
-      return `
-    <article class="glass hcard tilt" style="grid-column:span ${c};grid-row:span ${sh > .3 ? 2 : 1};--hc:${rgb};--ha:${a}">
+    : rows.map((h) => `
+    <article class="glass hcard tilt">
       <div class="flex items-center gap-3"><div class="avatar">${esc(h.symbol.slice(0, 3))}</div>
-        <div class="min-w-0"><div class="font-medium text-white truncate">${esc(h.name)}</div><div class="text-xs text-slate-400">${esc(h.symbol)}, ${esc(h.type)}</div></div>
-        <span class="ml-auto num font-medium ${t}">${pct(h.pnl_pct)}</span></div>
-      <div class="mt-4 flex items-end justify-between gap-3">
-        <div><div class="text-xs text-slate-400">${(sh * 100).toFixed(0)} % du portefeuille investi</div><div class="display ${sh > .3 ? 'text-3xl' : 'text-xl'} text-white num">${eur(h.value)}</div></div>
+        <div class="min-w-0"><div class="font-medium text-white truncate">${esc(h.name)}</div><div class="text-xs text-slate-500">${esc(h.symbol)}, ${esc(h.type)}</div></div>
+        <span class="ml-auto num font-medium ${tone(h.pnl_pct)}">${pct(h.pnl_pct)}</span></div>
+      <div class="mt-5 flex items-end justify-between gap-3">
+        <div><div class="text-xs text-slate-500">Valeur</div><div class="display text-xl text-white num">${eur(h.value)}</div></div>
         <div class="text-right text-xs text-slate-400 num">${qty(h.quantity)} × ${eur(h.price, h.price < 1 ? 4 : 2)}</div></div>
-    </article>`; }).join(''));
+    </article>`).join(''));
 }
 
 function renderTicker(rows) {
@@ -174,7 +172,7 @@ function renderDecisions(items) {
 /* ---------- Graphique + marqueurs d'actions ---------- */
 const glow = {
   id: 'glow',
-  beforeDatasetDraw(c, a) { if (a.index !== 1) { c.ctx.save(); c.ctx.shadowColor = `rgba(${css('--nr')},.85)`; c.ctx.shadowBlur = 16; } },
+  beforeDatasetDraw(c, a) { if (a.index !== 1) { c.ctx.save(); c.ctx.shadowColor = 'rgba(139,92,246,.85)'; c.ctx.shadowBlur = 16; } },
   afterDatasetDraw(c, a) { if (a.index !== 1) c.ctx.restore(); },
 };
 
@@ -194,11 +192,11 @@ function renderChart(rows, decs) {
   }
   const ctx = $('chart').getContext('2d');
   const grad = ctx.createLinearGradient(0, 0, 0, 320);
-  grad.addColorStop(0, `rgba(${css('--nr')},.5)`); grad.addColorStop(1, `rgba(${css('--nr')},0)`);
+  grad.addColorStop(0, 'rgba(139,92,246,.5)'); grad.addColorStop(1, 'rgba(99,102,241,0)');
   chart = new Chart(ctx, {
     type: 'line',
     data: { labels, datasets: [
-      { label: 'Valeur', data: total, borderColor: css('--neon2'), backgroundColor: grad, fill: true, tension: .4, borderWidth: 2.5, pointRadius: rows.length < 3 ? 4 : 0, pointHoverRadius: 5, pointBackgroundColor: '#fff' },
+      { label: 'Valeur', data: total, borderColor: '#a78bfa', backgroundColor: grad, fill: true, tension: .4, borderWidth: 2.5, pointRadius: rows.length < 3 ? 4 : 0, pointHoverRadius: 5, pointBackgroundColor: '#fff' },
       { label: 'Capital déposé', data: dep, borderColor: 'rgba(148,163,184,.55)', borderDash: [5, 5], borderWidth: 1.5, pointRadius: 0, stepped: true, fill: false },
       { label: 'Actions', data: mk, showLine: false, pointRadius: 6, pointHoverRadius: 9, pointBorderWidth: 2, pointBackgroundColor: col, pointBorderColor: col },
     ] },
@@ -230,7 +228,7 @@ let wasLoaded = false;
 async function refresh() {
   try {
     const [s, h, hist, dec] = await Promise.all([api('/api/summary'), api('/api/holdings'), api('/api/history'), api('/api/decisions')]);
-    renderSummary(s); renderRank(s); renderHoldings(h); renderTicker(h); renderChart(hist, dec); renderDecisions(dec); logDecisions(dec); renderDonut(h, s); renderStreak(hist, dec); tickCountdown();
+    renderSummary(s); renderRank(s); renderHoldings(h); renderTicker(h); renderChart(hist, dec); renderDecisions(dec); logDecisions(dec); tickCountdown();
     wasLoaded = true;
   } catch (e) { setStatus('error'); }
   finally { clearTimeout(timer); timer = setTimeout(refresh, running ? 3000 : 30000); }
@@ -258,106 +256,99 @@ if (!reduced) {
     const c = e.target.closest('.tilt'); if (!c) return;
     const r = c.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
     c.style.transform = `perspective(700px) rotateX(${(-y * 12).toFixed(2)}deg) rotateY(${(x * 12).toFixed(2)}deg) scale(1.03)`;
-    c.style.setProperty('--sx', `${((x + .5) * 100).toFixed(0)}%`); c.style.setProperty('--sy', `${((y + .5) * 100).toFixed(0)}%`);
   });
   hold.addEventListener('pointerout', (e) => { const c = e.target.closest('.tilt'); if (c && !c.contains(e.relatedTarget)) c.style.transform = ''; });
 }
 
-/* ---------- God Mode (visuel : n'appelle aucune API) ---------- */
+/* ---------- Trading manuel (POST /api/buy) ---------- */
+const panel = $('manual-panel'), buyForm = $('buy-form'), buySym = $('buy-symbol'), buyAmt = $('buy-amount'), buyBtn = $('buy-btn'), buyErr = $('buy-error');
+
+function setPanel(open) {
+  panel.classList.toggle('open', open);
+  panel.setAttribute('aria-hidden', String(!open));
+  panel.toggleAttribute('inert', !open); // champs non focalisables quand le panneau est replié
+  if (!open) showBuyError('');
+}
+
+function showBuyError(msg, fields = []) {
+  buyErr.textContent = msg; buyErr.classList.toggle('hidden', !msg);
+  [buySym, buyAmt].forEach((f) => f.setAttribute('aria-invalid', String(fields.includes(f))));
+}
+
+function setBuyBusy(busy) {
+  buyBtn.disabled = busy; buyBtn.textContent = busy ? 'Exécution…' : 'Exécuter l’ordre';
+  buySym.disabled = busy; buyAmt.disabled = busy;
+}
+
+// Majuscules automatiques + caractères autorisés pour un ticker (BTC, AAPL, BRK.B, BTC-EUR…)
+buySym.addEventListener('input', () => {
+  const v = buySym.value.toUpperCase().replace(/[^A-Z0-9.\-=^]/g, '');
+  if (v !== buySym.value) { const p = Math.max(0, (buySym.selectionStart ?? v.length) - (buySym.value.length - v.length)); buySym.value = v; buySym.setSelectionRange(p, p); }
+  showBuyError('');
+});
+buyAmt.addEventListener('input', () => showBuyError(''));
+
+// Montants rapides
+buyForm.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-amt]'); if (!b) return;
+  const v = b.dataset.amt === 'max' ? Math.floor(cashNow * 100) / 100 : +b.dataset.amt;
+  if (!(v > 0)) { toast('Aucun cash disponible pour le moment.', 'err'); return; }
+  buyAmt.value = v.toFixed(2); showBuyError(''); buyAmt.focus();
+});
+
+async function postBuy(symbol, amount) {
+  const token = localStorage.getItem('admin_token') || '';
+  const r = await fetch('/api/buy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(token ? { 'X-Admin-Token': token } : {}) },
+    body: JSON.stringify({ symbol, amount_eur: amount }),
+  });
+  let data = null; try { data = await r.json(); } catch (e) {}
+  if (!r.ok) {
+    const e = new Error(r.statusText); e.status = r.status;
+    const d = data && (data.detail ?? data.error ?? data.message); e.detail = typeof d === 'string' ? d : '';
+    throw e;
+  }
+  return data;
+}
+
+async function submitBuy() {
+  const symbol = buySym.value.trim().toUpperCase();
+  const amount = Math.round(parseFloat(buyAmt.value) * 100) / 100;
+  if (!/^[A-Z0-9.\-=^]{1,15}$/.test(symbol)) { showBuyError('Entrez un symbole valide (ex : BTC, AAPL, SOL).', [buySym]); buySym.focus(); return; }
+  if (!Number.isFinite(amount) || amount <= 0) { showBuyError('Entrez un montant supérieur à 0 €.', [buyAmt]); buyAmt.focus(); return; }
+  showBuyError(''); setBuyBusy(true);
+  try {
+    await postBuy(symbol, amount);
+    toast(`✅ Ordre exécuté : ${eur(amount)} de ${symbol}`, 'ok'); sfx('success');
+    log(`Ordre manuel validé : achat ${symbol} ${eur(amount)}`, 'ok');
+    buySym.value = ''; buyAmt.value = '';
+    refresh();
+    setBuyBusy(false); buySym.focus();
+  } catch (e) {
+    setBuyBusy(false);
+    if (e.status === 401) {
+      const t = prompt('Token admin requis pour passer un ordre :');
+      if (t) { localStorage.setItem('admin_token', t); return submitBuy(); }
+      toast('Token admin manquant : ordre non envoyé.', 'err');
+    } else if (e.status === 409) toast(`⚠️ ${e.detail || 'Une opération est déjà en cours, réessayez dans un instant.'}`, 'err');
+    else if (e.status) toast(`❌ ${e.detail || 'Ordre refusé. Vérifiez les logs du serveur.'}`, 'err');
+    else toast('❌ Serveur injoignable : ordre non envoyé.', 'err');
+    log(`Ordre manuel échoué : ${symbol} ${eur(amount)}${e.detail ? ' – ' + e.detail : ''}`, 'err');
+  }
+}
+buyForm.addEventListener('submit', (e) => { e.preventDefault(); submitBuy(); });
+
+/* ---------- God Mode : bascule le panneau Trading manuel ---------- */
 $('god').addEventListener('click', () => {
   const manual = $('god').getAttribute('aria-checked') !== 'true';
   $('god').setAttribute('aria-checked', manual); document.body.classList.toggle('manual', manual);
+  setPanel(manual);
   $('god-label').textContent = manual ? 'Contrôle manuel' : 'Pilote auto (IA)';
   log(manual ? 'God Mode : contrôle manuel activé' : 'God Mode : pilote automatique réactivé', manual ? 'warn' : 'ok');
   toast(manual ? '🎛️ Contrôle manuel activé' : '🤖 Pilote auto (IA) réactivé');
   sfx('toggle');
 });
-
-/* ---------- Couche Sci-Fi ---------- */
-let boost = 1, pc = '#a78bfa', P = [], prevStreak = 0;
-const fx = $('fx'), fc = fx.getContext('2d'), PAL = ['var(--neon)', 'var(--blue)', '#34d399', '#fbbf24', '#f472b6', '#fb7185'];
-
-// Glitch sur les gros chiffres quand ils changent
-function setNum(id, t) {
-  const el = $(id); if (el.textContent === t) return;
-  const was = el.textContent !== '–'; el.textContent = t;
-  if (was && !reduced) { el.classList.remove('glitch'); void el.offsetWidth; el.classList.add('glitch'); }
-}
-
-// Particules : accélèrent quand l'IA agit
-function fxSize() { fx.width = innerWidth; fx.height = innerHeight; P = Array.from({ length: Math.min(70, Math.floor(innerWidth / 18)) }, () => ({ x: Math.random() * fx.width, y: Math.random() * fx.height, r: Math.random() * 1.4 + .4, v: Math.random() * .25 + .08, d: Math.random() * 6.28 })); }
-function fxLoop() {
-  fc.clearRect(0, 0, fx.width, fx.height); fc.fillStyle = fc.shadowColor = pc; fc.shadowBlur = 8; boost += (1 - boost) * .02;
-  P.forEach((p) => {
-    p.y -= p.v * boost; p.x += Math.sin(p.d += .01 * boost) * .2 * boost;
-    if (p.y < -5) { p.y = fx.height + 5; p.x = Math.random() * fx.width; }
-    fc.globalAlpha = .35 + .4 * Math.min(boost / 3, 1); fc.beginPath(); fc.arc(p.x, p.y, p.r * (1 + (boost - 1) * .15), 0, 6.283); fc.fill();
-  });
-  requestAnimationFrame(fxLoop);
-}
-const fxBoost = () => { boost = 7; };
-if (!reduced) { fxSize(); fxLoop(); addEventListener('resize', fxSize); }
-
-// Boot screen
-(function () {
-  const b = $('boot'); if (reduced) { b.remove(); return; }
-  const L = ['alpha-ia kernel 4.2 ... ok', 'mount /api/summary ... ok', 'mount /api/holdings ... ok', 'mount /api/history ... ok', 'mount /api/decisions ... ok', 'load gemini.core ... ok', 'calibrate fear_greed ... ok', 'spawn particles ... ok', 'compile neon shaders ... ok', 'handshake secure ... ok', 'sync market feed ... ok', 'arm risk guard ... ok', 'unlock interface ... ok'];
-  const out = []; let i = 0;
-  const t = setInterval(() => { out.push(`0x${(Math.random() * 1e9 | 0).toString(16).padStart(8, '0')}  ${L[i]}`); $('boot-log').textContent = out.join('\n'); if (++i >= L.length) clearInterval(t); }, 32);
-  setTimeout(() => { b.classList.add('out'); setTimeout(() => b.remove(), 400); }, 520);
-})();
-
-// Sélecteur d'aura
-function setAura(a) {
-  document.body.dataset.aura = a; $('aura').value = a; pc = css('--neon2');
-  try { localStorage.setItem('aura', a); } catch (e) {}
-  if (chart) { chart.destroy(); chart = null; refresh(); }
-}
-$('aura').addEventListener('change', (e) => { setAura(e.target.value); log(`Aura ${e.target.value} activée`, 'dim'); });
-{ let a = 'synthwave'; try { a = localStorage.getItem('aura') || a; } catch (e) {} setAura(['synthwave', 'matrix', 'cyberpunk'].includes(a) ? a : 'synthwave'); }
-
-// Anneau d'énergie
-function renderDonut(rows, s) {
-  const parts = [...rows.map((h, i) => ({ n: h.symbol, v: h.value, c: PAL[i % PAL.length] })), { n: 'Cash', v: s.cash, c: '#64748b' }].filter((p) => p.v > 0);
-  const tot = parts.reduce((a, p) => a + p.v, 0) || 1; let cum = 0;
-  const segs = parts.map((p) => {
-    const f = p.v / tot * 100, d = Math.max(f - (parts.length > 1 ? 1.2 : 0), .5);
-    const o = `<circle cx="100" cy="100" r="76" pathLength="100" fill="none" style="stroke:${p.c}" stroke-width="7" stroke-linecap="round" stroke-dasharray="${d} ${100 - d}" stroke-dashoffset="${-cum}"/>`; cum += f; return o;
-  }).join('');
-  const inv = s.total ? Math.round(s.holdings_value / s.total * 100) : 0;
-  setHTML($('ring'), 'r', `<svg viewBox="0 0 200 200" class="w-full max-w-[220px] mx-auto" role="img" aria-label="Répartition du portefeuille">
-    <circle cx="100" cy="100" r="76" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="7"/>
-    <g class="ring-g" transform="rotate(-90 100 100)">${segs}</g>
-    <text x="100" y="104" text-anchor="middle" fill="#fff" font-family="Sora" font-size="30" font-weight="600">${inv} %</text>
-    <text x="100" y="124" text-anchor="middle" fill="#94a3b8" font-size="11">investi</text></svg>
-    <div class="mt-4 grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">${parts.map((p) => `<div class="flex items-center gap-2 min-w-0"><i class="w-2 h-2 rounded-full flex-none" style="background:${p.c}"></i><span class="truncate text-slate-300">${esc(p.n)}</span><span class="ml-auto num text-slate-400">${(p.v / tot * 100).toFixed(0)} %</span></div>`).join('')}</div>`);
-}
-
-// Win streak : trades suivis d'un gain net (hors dépôts) jusqu'à la décision suivante
-function renderStreak(rows, decs) {
-  if (!rows.length) return;
-  const ts = rows.map((r) => new Date(r.ts).getTime()), net = rows.map((r) => r.total - r.deposited);
-  const idx = (t) => { let b = 0; ts.forEach((x, i) => { if (Math.abs(x - t) < Math.abs(ts[b] - t)) b = i; }); return b; };
-  const ds = decs.filter((d) => d.orders.some((o) => o.status === 'executed' && o.action !== 'HOLD')).map((d) => idx(new Date(d.ts).getTime())).sort((a, b) => a - b);
-  const res = ds.map((b, i) => net[i < ds.length - 1 ? ds[i + 1] : rows.length - 1] - net[b]).filter((x) => Math.abs(x) > .005);
-  let n = 0; for (let i = res.length - 1; i >= 0 && res[i] > 0; i--) n++;
-  const el = $('streak');
-  const paint = () => { el.textContent = n ? `🔥 ${n}x Combo` : '🔥 0x'; el.classList.toggle('zero', !n); el.style.setProperty('--f', Math.min(n, 5)); };
-  if (prevStreak > 0 && n === 0) {
-    el.textContent = '💔 Combo brisé'; el.classList.remove('zero'); el.classList.add('broken');
-    setTimeout(() => { el.classList.remove('broken'); paint(); }, 1500); toast('💔 Combo brisé : trade perdant', 'err');
-  } else { paint(); if (n > prevStreak) { el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop'); } }
-  prevStreak = n;
-}
-
-// Deep Focus
-function setFocus(on) {
-  document.body.classList.toggle('focus', on); $('focus-btn').setAttribute('aria-pressed', on);
-  $('focus-btn').textContent = on ? 'Quitter le focus' : 'Deep Focus';
-  log(on ? 'Deep Focus activé' : 'Deep Focus désactivé', 'dim'); setTimeout(() => chart && chart.resize(), 60);
-}
-$('focus-btn').addEventListener('click', () => setFocus(!document.body.classList.contains('focus')));
-addEventListener('keydown', (e) => { if (e.key === 'Escape' && document.body.classList.contains('focus')) setFocus(false); });
 
 $('run-btn').addEventListener('click', runNow);
 setInterval(tickCountdown, 30000);
