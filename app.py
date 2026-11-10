@@ -76,6 +76,11 @@ class SellRequest(BaseModel):
 def index():
     return FileResponse(BASE / "static" / "index.html")
 
+# AJOUTE CES 3 LIGNES ICI :
+@app.get("/observer")
+def observer():
+    return FileResponse(BASE / "static" / "observer.html")
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
