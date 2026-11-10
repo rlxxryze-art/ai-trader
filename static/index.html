@@ -1,4 +1,4 @@
-<<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
@@ -29,6 +29,14 @@
         </div>
       </div>
       <div class="flex items-center gap-3 flex-wrap">
+        <nav class="nav" aria-label="Navigation">
+          <button id="nav-btn" type="button" class="pill nav-btn" aria-expanded="false" aria-haspopup="true" aria-controls="nav-menu" data-sfx>Menu
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+          <div id="nav-menu" class="nav-menu">
+            <a href="/" aria-current="page">Dashboard <small>ici</small></a>
+            <a href="/static/observer.html">Mode Observateur <small>lecture seule</small></a>
+          </div>
+        </nav>
         <div class="pill" role="status"><span id="dot" class="dot"></span><span id="status-text">Connexion…</span></div>
         <div class="text-sm text-slate-400 hidden sm:block">Prochaine analyse <span id="next-run" class="text-slate-200 num">–</span></div>
         <button id="run-btn" class="btn-neon" data-sfx>Lancer l’analyse</button>
@@ -181,5 +189,4 @@
   <div id="toasts" class="toasts" aria-live="polite"></div>
   <script src="/static/app.js"></script>
 </body>
-</html>
 </html>
