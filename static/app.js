@@ -1,5 +1,4 @@
 const $ = (id) => document.getElementById(id);
-const $ = (id) => document.getElementById(id);
 const eur = (n, d = 2) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: d, maximumFractionDigits: d }).format(n ?? 0);
 const pct = (n) => `${n >= 0 ? '+' : ''}${(n ?? 0).toFixed(2).replace('.', ',')} %`;
 const qty = (n) => new Intl.NumberFormat('fr-FR', { maximumFractionDigits: n < 1 ? 6 : 4 }).format(n ?? 0);
@@ -394,9 +393,15 @@ $('god').addEventListener('click', () => {
   sfx('toggle');
 });
 
+/* ---------- Menu déroulant (Dashboard / Mode Observateur) ---------- */
+const navBtn = $('nav-btn'), navMenu = $('nav-menu');
+const setNav = (o) => { navMenu.classList.toggle('open', o); navBtn.setAttribute('aria-expanded', String(o)); };
+navBtn.addEventListener('click', () => setNav(!navMenu.classList.contains('open')));
+document.addEventListener('click', (e) => { if (!e.target.closest('.nav')) setNav(false); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && navMenu.classList.contains('open')) { setNav(false); navBtn.focus(); } });
+
 $('run-btn').addEventListener('click', runNow);
 setInterval(tickCountdown, 30000);
 log('Alpha IA initialisé. Connexion au serveur…', 'dim');
 gauge();
-refresh();
 refresh();
