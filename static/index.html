@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
@@ -96,7 +96,7 @@
     <!-- Panneau Trading Manuel : visible uniquement quand le God Mode est actif -->
     <section id="manual-panel" class="drawer" aria-labelledby="manual-title" aria-hidden="true" inert>
       <div class="drawer-inner">
-        <form id="buy-form" class="glass manual p-6 lg:p-7" novalidate autocomplete="off">
+        <form id="buy-form" class="glass manual p-6 lg:p-7" data-mode="buy" novalidate autocomplete="off">
           <div class="flex flex-wrap items-start justify-between gap-3 mb-5">
             <div class="flex items-center gap-3">
               <div class="manual-ic" aria-hidden="true">
@@ -104,33 +104,55 @@
               </div>
               <div>
                 <h2 id="manual-title" class="display font-semibold text-white">Trading manuel</h2>
-                <p class="text-sm text-slate-400">Achat direct, sans passer par Gemini</p>
+                <p class="text-sm text-slate-400">Ordres directs, sans passer par Gemini</p>
               </div>
             </div>
             <span class="pill">Cash dispo <b id="manual-cash" class="num text-amber-200 font-semibold">–</b></span>
+          </div>
+
+          <!-- Sélecteur ACHAT / VENTE -->
+          <div class="seg mb-5" role="radiogroup" aria-label="Type d’ordre">
+            <span class="seg-thumb" aria-hidden="true"></span>
+            <button type="button" role="radio" aria-checked="true" tabindex="0" data-set="buy" data-sfx>ACHAT</button>
+            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-set="sell" data-sfx>VENTE</button>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-4 items-end">
             <div>
               <label for="buy-symbol" class="lbl">Symbole</label>
               <input id="buy-symbol" name="symbol" class="field" type="text" placeholder="BTC, AAPL, SOL…" maxlength="15" autocapitalize="characters" spellcheck="false" required>
+              <datalist id="held-symbols"></datalist>
             </div>
-            <div>
+            <div class="only-buy">
               <label for="buy-amount" class="lbl">Montant</label>
               <div class="field-wrap">
                 <input id="buy-amount" name="amount_eur" class="field" type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="25,50" required>
                 <span class="suffix" aria-hidden="true">€</span>
               </div>
             </div>
-            <button id="buy-btn" type="submit" class="btn-amber" data-sfx>Exécuter l’ordre</button>
+            <div class="only-sell">
+              <label for="sell-pct" class="lbl">Pourcentage à vendre (1-100 %)</label>
+              <div class="field-wrap">
+                <input id="sell-pct" name="sell_pct" class="field" type="number" inputmode="numeric" min="1" max="100" step="1" placeholder="100" required>
+                <span class="suffix" aria-hidden="true">%</span>
+              </div>
+            </div>
+            <button id="buy-btn" type="submit" class="btn-order" data-sfx>Exécuter l’ordre</button>
           </div>
 
-          <div class="flex flex-wrap items-center gap-2 mt-4" role="group" aria-label="Montants rapides">
+          <div class="only-buy flex flex-wrap items-center gap-2 mt-4" role="group" aria-label="Montants rapides">
             <span class="text-xs text-slate-500 mr-1">Rapide</span>
             <button type="button" class="qchip" data-amt="10" data-sfx>10 €</button>
             <button type="button" class="qchip" data-amt="25" data-sfx>25 €</button>
             <button type="button" class="qchip" data-amt="50" data-sfx>50 €</button>
             <button type="button" class="qchip" data-amt="max" data-sfx>Tout le cash</button>
+          </div>
+          <div class="only-sell flex flex-wrap items-center gap-2 mt-4" role="group" aria-label="Pourcentages rapides">
+            <span class="text-xs text-slate-500 mr-1">Rapide</span>
+            <button type="button" class="qchip" data-pct="25" data-sfx>25 %</button>
+            <button type="button" class="qchip" data-pct="50" data-sfx>50 %</button>
+            <button type="button" class="qchip" data-pct="75" data-sfx>75 %</button>
+            <button type="button" class="qchip" data-pct="100" data-sfx>Tout vendre</button>
           </div>
           <p id="buy-error" class="text-sm down mt-3 hidden" role="alert"></p>
         </form>
@@ -159,4 +181,5 @@
   <div id="toasts" class="toasts" aria-live="polite"></div>
   <script src="/static/app.js"></script>
 </body>
+</html>
 </html>
