@@ -510,3 +510,46 @@ def execute_manual_buy(symbol, amount_eur):
         db.add_snapshot(c, v["cash"], v["holdings_value"], v["total"], v["deposited"])
         
         return {"status": "ok", "message": f"Achat de {amount_eur} € de {symbol} validé !"}
+
+def execute_manual_sell(symbol, sell_pct):
+    symbol = str(symbol).upper().strip()
+    market = get_market()
+    m = market.get(symbol)
+    
+    if not m:
+        return {"error": "Actif introuvable ou prix indisponible."}
+        
+    with db.conn() as c:
+        # Récupérer ce que tu possèdes
+        held = {h["symbol"]: dict(h) for h in db.get_holdings(c)}
+        h = held.get(symbol)
+        
+        if not h or h["quantity"] <= 0:
+            return {"error": f"Vous ne possédez pas de {symbol} dans le portefeuille."}
+            
+        if sell_pct <= 0 or sell_pct > 100:
+            return {"error": "Le pourcentage de vente doit être compris entre 1 et 100."}
+            
+        # Calculs
+        price = m["price"]
+        qty_to_sell = h["quantity"] * (sell_pct / 100.0)
+        amount_eur = qty_to_sell * price
+        ts = db.now_iso()
+        reason = f"Vente manuelle (God Mode) de {sell_pct}%"
+        
+        # Exécuter la vente
+        db.apply_sell(c, symbol, qty_to_sell, price, amount_eur, reason, ts)
+        
+        # Enregistrer la décision pour l'historique
+        order = {
+            "action": "SELL", "symbol": symbol, "name": m["name"], 
+            "amount_eur": amount_eur, "quantity": qty_to_sell, "price_eur": price, 
+            "status": "executed", "note": "Intervention manuelle"
+        }
+        db.add_decision(c, "Le mode manuel (God Mode) a sécurisé les gains.", "manual", [order], "ok")
+        
+        # Mettre à jour la valeur totale
+        v = valuate(c, market)
+        db.add_snapshot(c, v["cash"], v["holdings_value"], v["total"], v["deposited"])
+        
+        return {"status": "ok", "message": f"Vente de {sell_pct}% de {symbol} validée (+{amount_eur:.2f} €) !"}
