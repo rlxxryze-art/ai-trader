@@ -1,4 +1,5 @@
 const $ = (id) => document.getElementById(id);
+const $ = (id) => document.getElementById(id);
 const eur = (n, d = 2) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: d, maximumFractionDigits: d }).format(n ?? 0);
 const pct = (n) => `${n >= 0 ? '+' : ''}${(n ?? 0).toFixed(2).replace('.', ',')} %`;
 const qty = (n) => new Intl.NumberFormat('fr-FR', { maximumFractionDigits: n < 1 ? 6 : 4 }).format(n ?? 0);
@@ -228,7 +229,7 @@ let wasLoaded = false;
 async function refresh() {
   try {
     const [s, h, hist, dec] = await Promise.all([api('/api/summary'), api('/api/holdings'), api('/api/history'), api('/api/decisions')]);
-    renderSummary(s); renderRank(s); renderHoldings(h); renderTicker(h); renderChart(hist, dec); renderDecisions(dec); logDecisions(dec); tickCountdown();
+    renderSummary(s); renderRank(s); renderHoldings(h); setHeld(h); renderTicker(h); renderChart(hist, dec); renderDecisions(dec); logDecisions(dec); tickCountdown();
     wasLoaded = true;
   } catch (e) { setStatus('error'); }
   finally { clearTimeout(timer); timer = setTimeout(refresh, running ? 3000 : 30000); }
@@ -260,8 +261,12 @@ if (!reduced) {
   hold.addEventListener('pointerout', (e) => { const c = e.target.closest('.tilt'); if (c && !c.contains(e.relatedTarget)) c.style.transform = ''; });
 }
 
-/* ---------- Trading manuel (POST /api/buy) ---------- */
-const panel = $('manual-panel'), buyForm = $('buy-form'), buySym = $('buy-symbol'), buyAmt = $('buy-amount'), buyBtn = $('buy-btn'), buyErr = $('buy-error');
+/* ---------- Trading manuel (POST /api/buy · POST /api/sell) ---------- */
+const panel = $('manual-panel'), buyForm = $('buy-form'), buySym = $('buy-symbol'), buyAmt = $('buy-amount'), sellPct = $('sell-pct'), buyBtn = $('buy-btn'), buyErr = $('buy-error');
+const modeBtns = [...buyForm.querySelectorAll('[data-set]')];
+const ORDER_FIELDS = [buySym, buyAmt, sellPct];
+const ORDER_PATH = { buy: '/api/buy', sell: '/api/sell' };
+let orderMode = 'buy';
 
 function setPanel(open) {
   panel.classList.toggle('open', open);
@@ -272,12 +277,34 @@ function setPanel(open) {
 
 function showBuyError(msg, fields = []) {
   buyErr.textContent = msg; buyErr.classList.toggle('hidden', !msg);
-  [buySym, buyAmt].forEach((f) => f.setAttribute('aria-invalid', String(fields.includes(f))));
+  ORDER_FIELDS.forEach((f) => f.setAttribute('aria-invalid', String(fields.includes(f))));
 }
 
 function setBuyBusy(busy) {
   buyBtn.disabled = busy; buyBtn.textContent = busy ? 'Exécution…' : 'Exécuter l’ordre';
-  buySym.disabled = busy; buyAmt.disabled = busy;
+  ORDER_FIELDS.forEach((f) => { f.disabled = busy; });
+  modeBtns.forEach((b) => { b.disabled = busy; });
+}
+
+/* Bascule ACHAT / VENTE */
+function setOrderMode(m) {
+  orderMode = m; buyForm.dataset.mode = m;
+  modeBtns.forEach((b) => { const on = b.dataset.set === m; b.setAttribute('aria-checked', String(on)); b.tabIndex = on ? 0 : -1; });
+  // En vente, le champ Symbole propose les actifs réellement détenus
+  if (m === 'sell') buySym.setAttribute('list', 'held-symbols'); else buySym.removeAttribute('list');
+  showBuyError('');
+}
+modeBtns.forEach((b) => b.addEventListener('click', () => setOrderMode(b.dataset.set)));
+buyForm.querySelector('[role=radiogroup]').addEventListener('keydown', (e) => {
+  if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) return;
+  e.preventDefault();
+  const next = orderMode === 'buy' ? 'sell' : 'buy';
+  setOrderMode(next); modeBtns.find((b) => b.dataset.set === next).focus();
+});
+
+/* Suggestions de symboles = actifs détenus (alimenté par refresh) */
+function setHeld(rows) {
+  setHTML($('held-symbols'), 'hs', rows.map((h) => `<option value="${esc(h.symbol)}">${esc(h.name)}</option>`).join(''));
 }
 
 // Majuscules automatiques + caractères autorisés pour un ticker (BTC, AAPL, BRK.B, BTC-EUR…)
@@ -287,21 +314,23 @@ buySym.addEventListener('input', () => {
   showBuyError('');
 });
 buyAmt.addEventListener('input', () => showBuyError(''));
+sellPct.addEventListener('input', () => showBuyError(''));
 
-// Montants rapides
+// Montants / pourcentages rapides
 buyForm.addEventListener('click', (e) => {
-  const b = e.target.closest('[data-amt]'); if (!b) return;
+  const b = e.target.closest('[data-amt], [data-pct]'); if (!b) return;
+  if (b.dataset.pct) { sellPct.value = b.dataset.pct; showBuyError(''); sellPct.focus(); return; }
   const v = b.dataset.amt === 'max' ? Math.floor(cashNow * 100) / 100 : +b.dataset.amt;
   if (!(v > 0)) { toast('Aucun cash disponible pour le moment.', 'err'); return; }
   buyAmt.value = v.toFixed(2); showBuyError(''); buyAmt.focus();
 });
 
-async function postBuy(symbol, amount) {
+async function postOrder(path, payload) {
   const token = localStorage.getItem('admin_token') || '';
-  const r = await fetch('/api/buy', {
+  const r = await fetch(path, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(token ? { 'X-Admin-Token': token } : {}) },
-    body: JSON.stringify({ symbol, amount_eur: amount }),
+    body: JSON.stringify(payload),
   });
   let data = null; try { data = await r.json(); } catch (e) {}
   if (!r.ok) {
@@ -312,32 +341,47 @@ async function postBuy(symbol, amount) {
   return data;
 }
 
-async function submitBuy() {
+/* Lit et valide le formulaire selon le mode : renvoie l'ordre à envoyer, ou une erreur */
+function readOrder() {
   const symbol = buySym.value.trim().toUpperCase();
-  const amount = Math.round(parseFloat(buyAmt.value) * 100) / 100;
-  if (!/^[A-Z0-9.\-=^]{1,15}$/.test(symbol)) { showBuyError('Entrez un symbole valide (ex : BTC, AAPL, SOL).', [buySym]); buySym.focus(); return; }
-  if (!Number.isFinite(amount) || amount <= 0) { showBuyError('Entrez un montant supérieur à 0 €.', [buyAmt]); buyAmt.focus(); return; }
+  if (!/^[A-Z0-9.\-=^]{1,15}$/.test(symbol)) return { error: 'Entrez un symbole valide (ex : BTC, AAPL, SOL).', field: buySym };
+  if (orderMode === 'buy') {
+    const amount = Math.round(parseFloat(buyAmt.value) * 100) / 100;
+    if (!Number.isFinite(amount) || amount <= 0) return { error: 'Entrez un montant supérieur à 0 €.', field: buyAmt };
+    return { symbol, path: ORDER_PATH.buy, payload: { symbol, amount_eur: amount },
+      ok: `✅ Achat exécuté : ${eur(amount)} de ${symbol}`, logOk: `Ordre manuel validé : achat ${symbol} ${eur(amount)}`,
+      logKo: `Ordre manuel échoué : achat ${symbol} ${eur(amount)}`, refused: 'Achat refusé. Vérifiez les logs du serveur.' };
+  }
+  const pct = Number(sellPct.value);
+  if (sellPct.value === '' || !Number.isInteger(pct) || pct < 1 || pct > 100) return { error: 'Entrez un pourcentage entier entre 1 et 100.', field: sellPct };
+  return { symbol, path: ORDER_PATH.sell, payload: { symbol, sell_pct: pct },
+    ok: `✅ Vente exécutée : ${pct} % de ${symbol}`, logOk: `Ordre manuel validé : vente ${pct} % de ${symbol}`,
+    logKo: `Ordre manuel échoué : vente ${pct} % de ${symbol}`, refused: 'Vente refusée : position introuvable ou ordre invalide.' };
+}
+
+async function submitOrder() {
+  const o = readOrder();
+  if (o.error) { showBuyError(o.error, [o.field]); o.field.focus(); return; }
   showBuyError(''); setBuyBusy(true);
   try {
-    await postBuy(symbol, amount);
-    toast(`✅ Ordre exécuté : ${eur(amount)} de ${symbol}`, 'ok'); sfx('success');
-    log(`Ordre manuel validé : achat ${symbol} ${eur(amount)}`, 'ok');
-    buySym.value = ''; buyAmt.value = '';
+    await postOrder(o.path, o.payload);
+    toast(o.ok, 'ok'); sfx('success'); log(o.logOk, 'ok');
+    buySym.value = ''; buyAmt.value = ''; sellPct.value = '';
     refresh();
     setBuyBusy(false); buySym.focus();
   } catch (e) {
     setBuyBusy(false);
     if (e.status === 401) {
       const t = prompt('Token admin requis pour passer un ordre :');
-      if (t) { localStorage.setItem('admin_token', t); return submitBuy(); }
+      if (t) { localStorage.setItem('admin_token', t); return submitOrder(); }
       toast('Token admin manquant : ordre non envoyé.', 'err');
     } else if (e.status === 409) toast(`⚠️ ${e.detail || 'Une opération est déjà en cours, réessayez dans un instant.'}`, 'err');
-    else if (e.status) toast(`❌ ${e.detail || 'Ordre refusé. Vérifiez les logs du serveur.'}`, 'err');
+    else if (e.status) toast(`❌ ${e.detail || o.refused}`, 'err');
     else toast('❌ Serveur injoignable : ordre non envoyé.', 'err');
-    log(`Ordre manuel échoué : ${symbol} ${eur(amount)}${e.detail ? ' – ' + e.detail : ''}`, 'err');
+    log(`${o.logKo}${e.detail ? ' – ' + e.detail : ''}`, 'err');
   }
 }
-buyForm.addEventListener('submit', (e) => { e.preventDefault(); submitBuy(); });
+buyForm.addEventListener('submit', (e) => { e.preventDefault(); submitOrder(); });
 
 /* ---------- God Mode : bascule le panneau Trading manuel ---------- */
 $('god').addEventListener('click', () => {
@@ -354,4 +398,5 @@ $('run-btn').addEventListener('click', runNow);
 setInterval(tickCountdown, 30000);
 log('Alpha IA initialisé. Connexion au serveur…', 'dim');
 gauge();
+refresh();
 refresh();
