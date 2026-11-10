@@ -68,7 +68,9 @@ app.mount("/static", StaticFiles(directory=BASE / "static"), name="static")
 class BuyRequest(BaseModel):
     symbol: str
     amount_eur: float
-
+class SellRequest(BaseModel):
+    symbol: str
+    sell_pct: float
 # --- 6. ROUTES DE L'APPLICATION ---
 @app.get("/")
 def index():
