@@ -1,4 +1,5 @@
 :root { --ink:#0B0C10; --neon:#8b5cf6; --blue:#38bdf8; --indigo:#6366f1; --line:rgba(255,255,255,.08); }
+:root { --ink:#0B0C10; --neon:#8b5cf6; --blue:#38bdf8; --indigo:#6366f1; --line:rgba(255,255,255,.08); }
 html { color-scheme: dark; }
 body { font-family:'DM Sans',system-ui,sans-serif; background:var(--ink); --o1:#6d28d9; --o2:#4338ca; --o3:#a855f7; }
 .display { font-family:'Sora',system-ui,sans-serif; letter-spacing:-.03em; }
@@ -155,6 +156,60 @@ body.manual { --neon:#f59e0b; }
 .field[aria-invalid=true] { border-color:rgba(244,63,94,.75); box-shadow:inset 0 2px 8px rgba(0,0,0,.45), 0 0 0 3px rgba(244,63,94,.16); }
 #buy-symbol { text-transform:uppercase; }
 .field[type=number] { -moz-appearance:textfield; appearance:textfield; padding-right:2.4rem; }
+.field[type=number]::-webkit-outer-spin-button, .field[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
+.field-wrap { position:relative; }
+.field-wrap .suffix { position:absolute; right:1rem; top:50%; transform:translateY(-50%); color:#94a3b8; font-weight:500; pointer-events:none; }
+
+.btn-order { min-height:3rem; padding:.8rem 1.6rem; border-radius:12px; font-weight:700; font-size:.9rem; color:var(--btxt); white-space:nowrap;
+  background:linear-gradient(135deg,var(--m1),var(--m2));
+  box-shadow:0 0 0 1px rgba(255,255,255,.25) inset, 0 6px 24px var(--mglow); transition:box-shadow .2s, transform .15s, opacity .2s, filter .2s; }
+.btn-order:hover:not(:disabled) { transform:scale(1.04); filter:saturate(1.15) brightness(1.08); box-shadow:0 0 0 1px rgba(255,255,255,.4) inset, 0 8px 44px var(--mglow), 0 0 28px var(--mglow); }
+.btn-order:active:not(:disabled) { transform:scale(.95); box-shadow:0 0 0 1px rgba(255,255,255,.45) inset, 0 14px 60px var(--mglow); }
+.btn-order:disabled { opacity:.55; cursor:progress; }
+.btn-order:focus-visible { outline-color:var(--m2); }
+
+/* Sélecteur ACHAT / VENTE (segmented control glass) */
+.seg { position:relative; display:grid; grid-template-columns:1fr 1fr; width:100%; max-width:300px; padding:4px; border-radius:14px;
+  background:rgba(4,7,10,.55); border:1px solid rgba(255,255,255,.1); box-shadow:inset 0 2px 8px rgba(0,0,0,.45);
+  -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px); }
+.seg-thumb { position:absolute; top:4px; bottom:4px; left:4px; width:calc(50% - 4px); border-radius:10px; pointer-events:none;
+  background:linear-gradient(135deg,var(--m1),var(--m2)); box-shadow:0 0 22px var(--mglow), inset 0 1px 0 rgba(255,255,255,.3);
+  transition:transform .45s cubic-bezier(.5,1.5,.4,1); }
+.manual[data-mode=sell] .seg-thumb { transform:translateX(100%); }
+.seg button { position:relative; z-index:1; padding:.55rem 1rem; border-radius:10px; font-size:.78rem; font-weight:700; letter-spacing:.1em; color:#94a3b8; transition:color .3s; }
+.seg button:hover { color:#e2e8f0; }
+.seg button[aria-checked=true] { color:var(--btxt); }
+
+/* Un seul jeu de champs visible à la fois, avec une petite entrée animée */
+.manual[data-mode=buy] .only-sell, .manual[data-mode=sell] .only-buy { display:none; }
+.manual[data-mode=buy] .only-buy, .manual[data-mode=sell] .only-sell { animation:fieldIn .4s cubic-bezier(.2,.8,.2,1); }
+@keyframes fieldIn { from { opacity:0; transform:translateY(8px); } }
+
+.qchip { padding:.3rem .75rem; border-radius:9999px; font-size:.78rem; font-weight:500; color:#fcd34d; background:rgba(245,158,11,.08); border:1px solid rgba(245,158,11,.25); transition:background .2s, border-color .2s, transform .15s; }
+.qchip:hover { background:rgba(245,158,11,.18); border-color:rgba(245,158,11,.55); }
+.qchip:active { transform:scale(.94); }
+
+/* ---------- Menu déroulant de navigation ---------- */
+.nav { position:relative; z-index:40; }
+.nav-btn { cursor:pointer; color:#e2e8f0; transition:border-color .2s, background .2s; }
+.nav-btn:hover, .nav-btn[aria-expanded=true] { border-color:rgba(139,92,246,.55); background:rgba(139,92,246,.12); }
+.nav-btn svg { transition:transform .3s; }
+.nav-btn[aria-expanded=true] svg { transform:rotate(180deg); }
+.nav-menu { position:absolute; right:0; top:calc(100% + 8px); min-width:230px; padding:6px; border-radius:14px; transform-origin:top right;
+  background:rgba(14,14,24,.94); border:1px solid rgba(139,92,246,.35); -webkit-backdrop-filter:blur(18px); backdrop-filter:blur(18px);
+  box-shadow:0 0 40px -10px rgba(139,92,246,.5), 0 20px 50px -20px #000;
+  opacity:0; visibility:hidden; transform:translateY(-8px) scale(.97);
+  transition:opacity .2s, transform .3s cubic-bezier(.2,1.2,.4,1), visibility 0s linear .3s; }
+.nav-menu.open { opacity:1; visibility:visible; transform:none; transition:opacity .2s, transform .3s cubic-bezier(.2,1.2,.4,1), visibility 0s; }
+.nav-menu a { display:flex; align-items:center; justify-content:space-between; gap:.75rem; padding:.6rem .8rem; border-radius:10px; font-size:.875rem; color:#cbd5e1; text-decoration:none; transition:background .15s, color .15s; }
+.nav-menu a:hover, .nav-menu a:focus-visible { background:rgba(139,92,246,.18); color:#fff; }
+.nav-menu a[aria-current=page] { color:#fff; }
+.nav-menu small { font-size:.68rem; color:#a78bfa; }
+@media (prefers-reduced-motion: reduce) { .nav-menu, .nav-btn svg { transition:none !important; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .dot, .btn-neon, .btn-order, .seg-thumb, .only-buy, .only-sell, .glass.manual, .toast, .tk-track, .hex::after, .ln::after, .needle, .god i, .hcard, .orb, .drawer, .field, .qchip { animation:none !important; transition:none !important; }
+}
 .field[type=number]::-webkit-outer-spin-button, .field[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; margin:0; }
 .field-wrap { position:relative; }
 .field-wrap .suffix { position:absolute; right:1rem; top:50%; transform:translateY(-50%); color:#94a3b8; font-weight:500; pointer-events:none; }
