@@ -135,3 +135,13 @@ def manual_buy(req: BuyRequest, x_admin_token: str | None = Header(default=None)
     if result.get("error"):
         raise HTTPException(400, result["error"])
     return result
+
+@app.post("/api/sell")
+def manual_sell(req: SellRequest, x_admin_token: str | None = Header(default=None)):
+    if ADMIN_TOKEN and not hmac.compare_digest(x_admin_token or "", ADMIN_TOKEN):
+        raise HTTPException(401, "Token admin invalide")
+        
+    result = trade_bot.execute_manual_sell(req.symbol, req.sell_pct)
+    if result.get("error"):
+        raise HTTPException(400, result["error"])
+    return result
