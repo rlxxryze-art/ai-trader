@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -17,10 +18,32 @@
 
   <div class="ticker" aria-label="Cours des actifs détenus"><div id="ticker" class="tk-track"></div></div>
 
+  <!-- NOUVEAU MENU LATÉRAL (SIDEBAR & OVERLAY) -->
+  <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
+  <aside id="sidebar" class="sidebar" aria-label="Menu principal">
+    <div class="sidebar-header">
+      <div class="logo" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
+      </div>
+      <div>
+        <h2 class="display text-xl font-semibold text-white">Alpha IA</h2>
+        <p class="text-xs text-slate-400 mt-1">v2.0.1</p>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="/" class="active"><span class="icon">🏠</span> Dashboard (Admin)</a>
+      <a href="/observer"><span class="icon">👁️</span> Mode Observateur (Public)</a>
+    </nav>
+  </aside>
+
   <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-6 lg:py-10">
     <header class="flex flex-wrap items-center justify-between gap-4 mb-8">
       <div class="flex items-center gap-3">
-        <div class="logo" aria-hidden="true">
+        <!-- BOUTON HAMBURGER -->
+        <button id="hamburger-btn" class="hamburger" aria-label="Ouvrir le menu">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+        <div class="logo hidden sm:grid" aria-hidden="true">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
         </div>
         <div>
@@ -29,14 +52,6 @@
         </div>
       </div>
       <div class="flex items-center gap-3 flex-wrap">
-        <nav class="nav" aria-label="Navigation">
-          <button id="nav-btn" type="button" class="pill nav-btn" aria-expanded="false" aria-haspopup="true" aria-controls="nav-menu" data-sfx>Menu
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
-          <div id="nav-menu" class="nav-menu">
-            <a href="/" aria-current="page">Dashboard <small>ici</small></a>
-            <a href="/static/observer.html">Mode Observateur <small>lecture seule</small></a>
-          </div>
-        </nav>
         <div class="pill" role="status"><span id="dot" class="dot"></span><span id="status-text">Connexion…</span></div>
         <div class="text-sm text-slate-400 hidden sm:block">Prochaine analyse <span id="next-run" class="text-slate-200 num">–</span></div>
         <button id="run-btn" class="btn-neon" data-sfx>Lancer l’analyse</button>
@@ -101,7 +116,7 @@
       </div>
     </section>
 
-    <!-- Panneau Trading Manuel : visible uniquement quand le God Mode est actif -->
+    <!-- Panneau Trading Manuel -->
     <section id="manual-panel" class="drawer" aria-labelledby="manual-title" aria-hidden="true" inert>
       <div class="drawer-inner">
         <form id="buy-form" class="glass manual p-6 lg:p-7" data-mode="buy" novalidate autocomplete="off">
@@ -118,7 +133,6 @@
             <span class="pill">Cash dispo <b id="manual-cash" class="num text-amber-200 font-semibold">–</b></span>
           </div>
 
-          <!-- Sélecteur ACHAT / VENTE -->
           <div class="seg mb-5" role="radiogroup" aria-label="Type d’ordre">
             <span class="seg-thumb" aria-hidden="true"></span>
             <button type="button" role="radio" aria-checked="true" tabindex="0" data-set="buy" data-sfx>ACHAT</button>
