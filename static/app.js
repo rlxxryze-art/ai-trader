@@ -405,3 +405,18 @@ setInterval(tickCountdown, 30000);
 log('Alpha IA initialisé. Connexion au serveur…', 'dim');
 gauge();
 refresh();
+
+// ---------- Logique du Menu Latéral (Sidebar) ----------
+const hamburgerBtn = $('hamburger-btn');
+const sidebar = $('sidebar');
+const sidebarOverlay = $('sidebar-overlay');
+
+if (hamburgerBtn && sidebar && sidebarOverlay) {
+  const toggleSidebar = () => {
+    const isOpen = sidebar.classList.contains('open');
+    sidebar.classList.toggle('open', !isOpen);
+    sidebarOverlay.classList.toggle('open', !isOpen);
+  };
+  hamburgerBtn.addEventListener('click', toggleSidebar);
+  sidebarOverlay.addEventListener('click', toggleSidebar);
+}
