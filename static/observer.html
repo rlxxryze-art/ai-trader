@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Alpha IA — Vue Observateur</title>
-  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="stylesheet" href="/static/style.css?v=3" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -25,12 +25,12 @@
       <div class="card">
         <div class="kpi-label">Valeur du Portefeuille</div>
         <div class="kpi-value" id="obs-total-value">-- €</div>
-        <div class="kpi-sub" id="obs-total-invested">Capital engagé : -- €</div>
+        <div class="kpi-sub" id="obs-total-deposited">Capital déposé : -- €</div>
       </div>
       <div class="card">
         <div class="kpi-label">Liquidités (Cash)</div>
         <div class="kpi-value" id="obs-cash-balance">-- €</div>
-        <div class="kpi-sub">Stratégie : 50 € / cycle</div>
+        <div class="kpi-sub" id="obs-daily-budget">Budget cycle : -- €</div>
       </div>
       <div class="card">
         <div class="kpi-label">Performance Nette</div>
@@ -44,7 +44,7 @@
       </div>
     </section>
 
-    <!-- Performance Chart -->
+    <!-- Courbe de performance -->
     <section class="main-grid single-col">
       <div class="card">
         <div class="card-header">
@@ -56,7 +56,7 @@
       </div>
     </section>
 
-    <!-- Holdings -->
+    <!-- Portefeuille -->
     <section class="card">
       <div class="card-header">
         <h2 class="card-title">Portefeuille en Cours</h2>
@@ -80,10 +80,10 @@
       </div>
     </section>
 
-    <!-- History -->
+    <!-- Journal des décisions -->
     <section class="card">
       <div class="card-header">
-        <h2 class="card-title">Journal des Trades IA</h2>
+        <h2 class="card-title">Journal des Décisions IA</h2>
       </div>
       <div class="table-responsive">
         <table>
@@ -92,7 +92,7 @@
               <th>Date</th>
               <th>Action</th>
               <th>Actif</th>
-              <th>Montant / Qté</th>
+              <th>Montant / %</th>
               <th>Prix</th>
               <th>Analyse IA</th>
             </tr>
@@ -105,6 +105,6 @@
     </section>
   </main>
 
-  <script src="/static/observer.js"></script>
+  <script src="/static/observer.js?v=3"></script>
 </body>
 </html>
