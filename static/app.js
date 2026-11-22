@@ -87,6 +87,56 @@ function updateChart(labels, values) {
   });
 }
 
+function expandDecisions(decRaw) {
+  const list = Array.isArray(decRaw) ? decRaw : decRaw.decisions ?? [];
+  const rows = [];
+
+  for (const d of list) {
+    let orders = d.orders;
+    if (!Array.isArray(orders) && typeof d.orders_json === "string") {
+      try {
+        orders = JSON.parse(d.orders_json);
+      } catch {
+        orders = [];
+      }
+    }
+
+    const baseReason = d.error
+      ? `Erreur : ${d.error}`
+      : d.market_view || d.reason || d.rationale || "Aucune analyse enregistrée";
+
+    if (Array.isArray(orders) && orders.length > 0) {
+      for (const o of orders) {
+        rows.push({
+          ts: d.ts || d.timestamp || d.date,
+          action: o.action || o.side || "HOLD",
+          symbol: o.symbol || "--",
+          amount_eur: o.amount_eur,
+          sell_pct: o.sell_pct,
+          qty: o.qty,
+          price: o.price,
+          reason: o.reason || baseReason,
+          isError: Boolean(d.error),
+        });
+      }
+    } else {
+      rows.push({
+        ts: d.ts || d.timestamp || d.date,
+        action: d.error ? "ERREUR" : d.action || "HOLD",
+        symbol: d.symbol || "Marché",
+        amount_eur: d.amount_eur,
+        sell_pct: d.sell_pct,
+        qty: d.qty,
+        price: d.price,
+        reason: baseReason,
+        isError: Boolean(d.error),
+      });
+    }
+  }
+
+  return rows;
+}
+
 async function fetchDashboardData() {
   try {
     const [summaryRes, holdingsRes, historyRes, decisionsRes] = await Promise.allSettled([
@@ -183,7 +233,7 @@ async function fetchDashboardData() {
     // 4. Décisions & Ordres (/api/decisions)
     if (decisionsRes.status === "fulfilled" && decisionsRes.value.ok) {
       const decRaw = await decisionsRes.value.json();
-      const rows = Array.isArray(decRaw) ? decRaw : decRaw.decisions ?? [];
+      const rows = expandDecisions(decRaw);
       const tbody = document.getElementById("history-body");
 
       if (rows.length === 0) {
@@ -191,9 +241,9 @@ async function fetchDashboardData() {
       } else {
         tbody.innerHTML = rows
           .map((t) => {
-            const action = String(t.action || t.side || t.decision || "HOLD").toUpperCase();
+            const action = String(t.action || "HOLD").toUpperCase();
             const isBuy = action.includes("BUY") || action.includes("ACHAT");
-            const isSell = action.includes("SELL") || action.includes("VENTE");
+            const isSell = action.includes("SELL") || action.includes("VENTE") || t.isError;
             const pillClass = isBuy ? "pill-buy" : isSell ? "pill-sell" : "";
 
             let amountLabel = "--";
@@ -201,14 +251,16 @@ async function fetchDashboardData() {
             else if (t.sell_pct != null) amountLabel = `${t.sell_pct} %`;
             else if (t.qty != null) amountLabel = Number(t.qty).toFixed(4);
 
+            const reasonColor = t.isError ? "var(--red)" : "var(--text-secondary)";
+
             return `
               <tr>
-                <td>${formatDate(t.ts || t.timestamp || t.created_at || t.date)}</td>
+                <td style="white-space: nowrap;">${formatDate(t.ts)}</td>
                 <td><span class="pill ${pillClass}">${action}</span></td>
-                <td><strong>${t.symbol || "--"}</strong></td>
+                <td><strong>${t.symbol}</strong></td>
                 <td>${amountLabel}</td>
                 <td>${t.price ? formatEur(t.price) : "--"}</td>
-                <td style="color: var(--text-secondary);">${t.reason || t.rationale || "Alpha IA"}</td>
+                <td style="color: ${reasonColor}; max-width: 420px; white-space: normal; line-height: 1.4;">${t.reason}</td>
               </tr>
             `;
           })
