@@ -139,11 +139,13 @@ async function fetchDashboardData() {
         tbody.innerHTML = holdings
           .map((item) => {
             const qty = Number(item.qty ?? item.quantity ?? item.shares ?? 0);
-            const avg = Number(item.avg_price ?? item.buy_price ?? item.entry_price ?? 0);
+            const avg = Number(item.avg_cost ?? item.avg_price ?? item.buy_price ?? item.entry_price ?? 0);
             const cur = Number(item.price ?? item.current_price ?? avg);
             const val = Number(item.value ?? item.market_value ?? qty * cur);
-            const posPnl = Number(item.pnl_eur ?? item.pnl ?? val - qty * avg);
+            const posPnl = Number(item.pnl_eur ?? item.pnl ?? (avg > 0 ? val - qty * avg : 0));
+            const posPnlPct = Number(item.pnl_pct ?? (avg > 0 ? ((cur / avg) - 1) * 100 : 0));
             const pnlClass = posPnl >= 0 ? "text-green" : "text-red";
+            const sign = posPnl >= 0 ? "+" : "";
 
             return `
               <tr>
@@ -152,7 +154,10 @@ async function fetchDashboardData() {
                 <td>${formatEur(avg)}</td>
                 <td>${formatEur(cur)}</td>
                 <td>${formatEur(val)}</td>
-                <td class="${pnlClass}">${posPnl >= 0 ? "+" : ""}${formatEur(posPnl)}</td>
+                <td class="${pnlClass}">
+                  <strong>${sign}${formatEur(posPnl)}</strong>
+                  <span style="font-size: 0.82rem; opacity: 0.9;">(${sign}${posPnlPct.toFixed(2)} %)</span>
+                </td>
               </tr>
             `;
           })
