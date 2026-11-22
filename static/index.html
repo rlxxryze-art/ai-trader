@@ -1,206 +1,137 @@
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Alpha IA – Portefeuille géré par Gemini</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>tailwind.config = { theme: { extend: { colors: { ink: '#0B0C10' } } } }</script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <link rel="stylesheet" href="/static/style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Alpha IA — Portefeuille & God Mode</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="text-slate-200 antialiased min-h-screen" data-mood="flat">
-  <div class="bg-orbs" aria-hidden="true"><span class="orb o1"></span><span class="orb o2"></span><span class="orb o3"></span></div>
-
-  <div class="ticker" aria-label="Cours des actifs détenus"><div id="ticker" class="tk-track"></div></div>
-
-  <!-- NOUVEAU MENU LATÉRAL (SIDEBAR & OVERLAY) -->
-  <div id="sidebar-overlay" class="sidebar-overlay" aria-hidden="true"></div>
-  <aside id="sidebar" class="sidebar" aria-label="Menu principal">
-    <div class="sidebar-header">
-      <div class="logo" aria-hidden="true">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
-      </div>
-      <div>
-        <h2 class="display text-xl font-semibold text-white">Alpha IA</h2>
-        <p class="text-xs text-slate-400 mt-1">v2.0.1</p>
-      </div>
+<body>
+  <nav class="navbar">
+    <div class="brand">
+      <span class="brand-dot"></span>
+      <span>Alpha IA</span>
     </div>
-    <nav class="sidebar-nav">
-      <a href="/" class="active"><span class="icon">🏠</span> Dashboard (Admin)</a>
-      <a href="/observer"><span class="icon">👁️</span> Mode Observateur (Public)</a>
-    </nav>
-  </aside>
+    <div class="nav-links">
+      <a href="/" class="active">Dashboard Admin</a>
+      <a href="/observer">Vue Observateur</a>
+      <span class="badge-live" id="last-sync">Sync...</span>
+    </div>
+  </nav>
 
-  <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-6 lg:py-10">
-    <header class="flex flex-wrap items-center justify-between gap-4 mb-8">
-      <div class="flex items-center gap-3">
-        <!-- BOUTON HAMBURGER -->
-        <button id="hamburger-btn" class="hamburger" aria-label="Ouvrir le menu">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
-        </button>
-        <div class="logo hidden sm:grid" aria-hidden="true">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
-        </div>
-        <div>
-          <h1 class="display text-xl font-semibold text-white">Alpha IA</h1>
-          <p class="text-sm text-slate-400">Gemini investit 50 € virtuels chaque jour</p>
-        </div>
+  <main class="container">
+    <!-- KPIs -->
+    <section class="kpi-grid">
+      <div class="card">
+        <div class="kpi-label">Valeur Totale</div>
+        <div class="kpi-value" id="total-value">-- €</div>
+        <div class="kpi-sub" id="total-invested">Capital engagé : -- €</div>
       </div>
-      <div class="flex items-center gap-3 flex-wrap">
-        <div class="pill" role="status"><span id="dot" class="dot"></span><span id="status-text">Connexion…</span></div>
-        <div class="text-sm text-slate-400 hidden sm:block">Prochaine analyse <span id="next-run" class="text-slate-200 num">–</span></div>
-        <button id="run-btn" class="btn-neon" data-sfx>Lancer l’analyse</button>
+      <div class="card">
+        <div class="kpi-label">Cash Disponible</div>
+        <div class="kpi-value" id="cash-balance">-- €</div>
+        <div class="kpi-sub">Allocation cible : 50 €/jour</div>
       </div>
-    </header>
-
-    <section class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
-      <div class="glass p-6 lg:p-8 lg:col-span-2 flex flex-col justify-between min-h-[210px]">
-        <p class="text-sm text-slate-400">Valeur du portefeuille</p>
-        <div id="kpi-total" class="display hero-num text-5xl sm:text-7xl font-semibold num mt-2">–</div>
-        <div class="flex flex-wrap items-center gap-3 mt-5">
-          <span id="kpi-pnl" class="pill num">–</span>
-          <span class="text-sm text-slate-400">sur <span id="kpi-deposited" class="text-slate-200 num">–</span> déposés</span>
-        </div>
+      <div class="card">
+        <div class="kpi-label">Performance Globale</div>
+        <div class="kpi-value" id="total-pnl">-- €</div>
+        <div class="kpi-sub" id="total-pnl-pct">-- %</div>
       </div>
-      <div class="grid gap-5">
-        <div id="rank" class="glass p-5 flex items-center gap-4">
-          <div class="hexw"><div class="hex"><span id="rank-n" class="display text-2xl font-bold text-white">1</span></div></div>
-          <div class="flex-1 min-w-0">
-            <p class="text-sm text-slate-400">Rang actuel</p>
-            <div id="rank-name" class="display text-xl font-semibold text-white truncate">–</div>
-            <div class="bar mt-2"><i id="rank-bar"></i></div>
-            <p id="rank-next" class="text-xs text-slate-500 mt-1.5">–</p>
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-5">
-          <div class="glass p-5"><p class="text-sm text-slate-400">Cash dispo</p><div id="kpi-cash" class="display text-xl sm:text-2xl font-semibold text-white num mt-1">–</div></div>
-          <div class="glass p-5"><p class="text-sm text-slate-400">Investi</p><div id="kpi-invested" class="display text-xl sm:text-2xl font-semibold text-white num mt-1">–</div></div>
-        </div>
+      <div class="card">
+        <div class="kpi-label">Statut Moteur IA</div>
+        <div class="kpi-value" id="ai-status" style="font-size: 1.3rem;">Actif</div>
+        <div class="kpi-sub" id="positions-count">0 position ouverte</div>
       </div>
     </section>
 
-    <section class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
-      <div class="glass p-6 lg:col-span-2">
-        <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
-          <h2 class="display font-semibold text-white">Évolution du portefeuille</h2>
-          <div class="flex items-center gap-4 text-xs text-slate-400">
-            <span class="flex items-center gap-1.5"><i class="inline-block w-3 h-0.5 bg-violet-400"></i>Valeur</span>
-            <span class="flex items-center gap-1.5"><i class="inline-block w-3 border-t border-dashed border-slate-400"></i>Capital déposé</span>
-            <span class="flex items-center gap-1.5"><i class="inline-block w-2 h-2 rounded-full bg-emerald-400"></i>Achat<i class="inline-block w-2 h-2 rounded-full bg-rose-400 ml-1"></i>Vente</span>
-          </div>
+    <!-- Chart + God Mode -->
+    <section class="main-grid">
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Évolution du Portefeuille</h2>
+          <button class="btn btn-secondary" id="refresh-btn">Actualiser</button>
         </div>
-        <div class="relative h-[320px]"><canvas id="chart" aria-label="Graphique d’évolution du portefeuille avec les achats et ventes de l’IA" role="img"></canvas></div>
-      </div>
-      <div class="grid gap-5">
-        <div class="glass p-6 text-center">
-          <h2 class="display font-semibold text-white text-left">Peur et avidité</h2>
-          <svg viewBox="0 0 200 118" class="w-full max-w-[260px] mx-auto mt-3" role="img" aria-label="Jauge du sentiment du marché">
-            <defs><linearGradient id="gg"><stop offset="0" stop-color="#f43f5e"/><stop offset=".5" stop-color="#fbbf24"/><stop offset="1" stop-color="#34d399"/></linearGradient></defs>
-            <path d="M20 100A80 80 0 0 1 180 100" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="14" stroke-linecap="round"/>
-            <path d="M20 100A80 80 0 0 1 180 100" fill="none" stroke="url(#gg)" stroke-width="14" stroke-linecap="round"/>
-            <g id="needle" class="needle"><line x1="100" y1="100" x2="100" y2="34" stroke="#fff" stroke-width="3" stroke-linecap="round"/></g>
-            <circle cx="100" cy="100" r="7" fill="#0B0C10" stroke="#fff" stroke-width="2.5"/>
-          </svg>
-          <div id="fg-val" class="display text-4xl font-semibold text-white num -mt-1">0</div>
-          <div id="fg-lbl" class="text-sm text-slate-400">Chargement…</div>
-        </div>
-        <div class="glass p-6 flex items-center justify-between gap-4">
-          <div><h2 class="display font-semibold text-white">God Mode</h2><p id="god-label" class="text-sm text-slate-400 mt-1">Pilote auto (IA)</p></div>
-          <button id="god" class="god" role="switch" aria-checked="false" aria-label="Basculer entre pilote automatique et contrôle manuel" data-sfx><i></i></button>
+        <div class="chart-wrapper">
+          <canvas id="portfolioChart"></canvas>
         </div>
       </div>
-    </section>
 
-    <!-- Panneau Trading Manuel -->
-    <section id="manual-panel" class="drawer" aria-labelledby="manual-title" aria-hidden="true" inert>
-      <div class="drawer-inner">
-        <form id="buy-form" class="glass manual p-6 lg:p-7" data-mode="buy" novalidate autocomplete="off">
-          <div class="flex flex-wrap items-start justify-between gap-3 mb-5">
-            <div class="flex items-center gap-3">
-              <div class="manual-ic" aria-hidden="true">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
-              </div>
-              <div>
-                <h2 id="manual-title" class="display font-semibold text-white">Trading manuel</h2>
-                <p class="text-sm text-slate-400">Ordres directs, sans passer par Gemini</p>
-              </div>
-            </div>
-            <span class="pill">Cash dispo <b id="manual-cash" class="num text-amber-200 font-semibold">–</b></span>
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">God Mode — Ordre Manuel</h2>
+        </div>
+        <form class="god-form" id="god-mode-form">
+          <div class="form-group">
+            <label for="admin-token">X-Admin-Token</label>
+            <input type="password" id="admin-token" placeholder="Token administrateur" required />
           </div>
-
-          <div class="seg mb-5" role="radiogroup" aria-label="Type d’ordre">
-            <span class="seg-thumb" aria-hidden="true"></span>
-            <button type="button" role="radio" aria-checked="true" tabindex="0" data-set="buy" data-sfx>ACHAT</button>
-            <button type="button" role="radio" aria-checked="false" tabindex="-1" data-set="sell" data-sfx>VENTE</button>
+          <div class="form-group">
+            <label for="trade-symbol">Actif / Ticker (ex: BTC-USD, NVDA, AAPL)</label>
+            <input type="text" id="trade-symbol" placeholder="BTC-USD" required />
           </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-4 items-end">
-            <div>
-              <label for="buy-symbol" class="lbl">Symbole</label>
-              <input id="buy-symbol" name="symbol" class="field" type="text" placeholder="BTC, AAPL, SOL…" maxlength="15" autocapitalize="characters" spellcheck="false" required>
-              <datalist id="held-symbols"></datalist>
-            </div>
-            <div class="only-buy">
-              <label for="buy-amount" class="lbl">Montant</label>
-              <div class="field-wrap">
-                <input id="buy-amount" name="amount_eur" class="field" type="number" inputmode="decimal" min="0.01" step="0.01" placeholder="25,50" required>
-                <span class="suffix" aria-hidden="true">€</span>
-              </div>
-            </div>
-            <div class="only-sell">
-              <label for="sell-pct" class="lbl">Pourcentage à vendre (1-100 %)</label>
-              <div class="field-wrap">
-                <input id="sell-pct" name="sell_pct" class="field" type="number" inputmode="numeric" min="1" max="100" step="1" placeholder="100" required>
-                <span class="suffix" aria-hidden="true">%</span>
-              </div>
-            </div>
-            <button id="buy-btn" type="submit" class="btn-order" data-sfx>Exécuter l’ordre</button>
+          <div class="form-group">
+            <label for="trade-amount">Montant (€) ou Quantité</label>
+            <input type="number" step="any" min="0.0001" id="trade-amount" placeholder="50" required />
           </div>
-
-          <div class="only-buy flex flex-wrap items-center gap-2 mt-4" role="group" aria-label="Montants rapides">
-            <span class="text-xs text-slate-500 mr-1">Rapide</span>
-            <button type="button" class="qchip" data-amt="10" data-sfx>10 €</button>
-            <button type="button" class="qchip" data-amt="25" data-sfx>25 €</button>
-            <button type="button" class="qchip" data-amt="50" data-sfx>50 €</button>
-            <button type="button" class="qchip" data-amt="max" data-sfx>Tout le cash</button>
+          <div class="btn-row">
+            <button type="button" class="btn btn-buy" id="btn-buy">Acheter</button>
+            <button type="button" class="btn btn-sell" id="btn-sell">Vendre</button>
           </div>
-          <div class="only-sell flex flex-wrap items-center gap-2 mt-4" role="group" aria-label="Pourcentages rapides">
-            <span class="text-xs text-slate-500 mr-1">Rapide</span>
-            <button type="button" class="qchip" data-pct="25" data-sfx>25 %</button>
-            <button type="button" class="qchip" data-pct="50" data-sfx>50 %</button>
-            <button type="button" class="qchip" data-pct="75" data-sfx>75 %</button>
-            <button type="button" class="qchip" data-pct="100" data-sfx>Tout vendre</button>
-          </div>
-          <p id="buy-error" class="text-sm down mt-3 hidden" role="alert"></p>
         </form>
       </div>
     </section>
 
-    <section class="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-5">
-      <div class="glass p-6 lg:col-span-2">
-        <h2 class="display font-semibold text-white mb-4">Terminal IA</h2>
-        <div id="term" class="term" role="log" aria-live="off"></div>
+    <!-- Holdings -->
+    <section class="card">
+      <div class="card-header">
+        <h2 class="card-title">Positions Actuelles</h2>
       </div>
-      <div class="glass p-6">
-        <h2 class="display font-semibold text-white mb-4">Dernières décisions de l’IA</h2>
-        <div id="decisions" class="decisions"></div>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Actif</th>
+              <th>Quantité</th>
+              <th>Prix Moyen</th>
+              <th>Prix Actuel</th>
+              <th>Valeur</th>
+              <th>P&L</th>
+            </tr>
+          </thead>
+          <tbody id="holdings-body">
+            <tr><td colspan="6" class="empty-state">Chargement des positions...</td></tr>
+          </tbody>
+        </table>
       </div>
     </section>
 
-    <section class="mb-2">
-      <h2 class="display font-semibold text-white mb-4 px-1">Actifs détenus</h2>
-      <div id="holdings" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+    <!-- History -->
+    <section class="card">
+      <div class="card-header">
+        <h2 class="card-title">Historique des Décisions & Ordres</h2>
+      </div>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Type</th>
+              <th>Actif</th>
+              <th>Montant / Qté</th>
+              <th>Prix</th>
+              <th>Raison / Source</th>
+            </tr>
+          </thead>
+          <tbody id="history-body">
+            <tr><td colspan="6" class="empty-state">Chargement de l'historique...</td></tr>
+          </tbody>
+        </table>
+      </div>
     </section>
-
-    <p class="text-center text-xs text-slate-500 mt-8">Simulation avec de l’argent virtuel. Ce n’est pas un conseil en investissement.</p>
   </main>
 
-  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <div class="toast" id="toast"></div>
   <script src="/static/app.js"></script>
 </body>
 </html>
