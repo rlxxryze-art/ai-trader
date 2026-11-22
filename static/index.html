@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Alpha IA — Portefeuille & God Mode</title>
-  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="stylesheet" href="/static/style.css?v=3" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -26,12 +26,12 @@
       <div class="card">
         <div class="kpi-label">Valeur Totale</div>
         <div class="kpi-value" id="total-value">-- €</div>
-        <div class="kpi-sub" id="total-invested">Capital engagé : -- €</div>
+        <div class="kpi-sub" id="total-deposited">Capital déposé : -- €</div>
       </div>
       <div class="card">
         <div class="kpi-label">Cash Disponible</div>
         <div class="kpi-value" id="cash-balance">-- €</div>
-        <div class="kpi-sub">Allocation cible : 50 €/jour</div>
+        <div class="kpi-sub" id="daily-budget">Budget cycle : -- €/jour</div>
       </div>
       <div class="card">
         <div class="kpi-label">Performance Globale</div>
@@ -40,12 +40,12 @@
       </div>
       <div class="card">
         <div class="kpi-label">Statut Moteur IA</div>
-        <div class="kpi-value" id="ai-status" style="font-size: 1.3rem;">Actif</div>
-        <div class="kpi-sub" id="positions-count">0 position ouverte</div>
+        <div class="kpi-value" id="ai-status" style="font-size: 1.3rem;">Prêt</div>
+        <div class="kpi-sub" id="next-run">Prochain cycle : --</div>
       </div>
     </section>
 
-    <!-- Chart + God Mode -->
+    <!-- Graphique + God Mode -->
     <section class="main-grid">
       <div class="card">
         <div class="card-header">
@@ -59,33 +59,37 @@
 
       <div class="card">
         <div class="card-header">
-          <h2 class="card-title">God Mode — Ordre Manuel</h2>
+          <h2 class="card-title">God Mode — Contrôle Manuel</h2>
         </div>
         <form class="god-form" id="god-mode-form">
           <div class="form-group">
             <label for="admin-token">X-Admin-Token</label>
-            <input type="password" id="admin-token" placeholder="Token administrateur" required />
+            <input type="password" id="admin-token" placeholder="Ton mot de passe ADMIN_TOKEN" required />
           </div>
           <div class="form-group">
             <label for="trade-symbol">Actif / Ticker (ex: BTC-USD, NVDA, AAPL)</label>
             <input type="text" id="trade-symbol" placeholder="BTC-USD" required />
           </div>
           <div class="form-group">
-            <label for="trade-amount">Montant (€) ou Quantité</label>
-            <input type="number" step="any" min="0.0001" id="trade-amount" placeholder="50" required />
+            <label for="trade-value">Montant en € (Achat) ou % à vendre (ex: 100)</label>
+            <input type="number" step="any" min="0.1" id="trade-value" placeholder="50" required />
           </div>
           <div class="btn-row">
-            <button type="button" class="btn btn-buy" id="btn-buy">Acheter</button>
-            <button type="button" class="btn btn-sell" id="btn-sell">Vendre</button>
+            <button type="button" class="btn btn-buy" id="btn-buy">Acheter (€)</button>
+            <button type="button" class="btn btn-sell" id="btn-sell">Vendre (%)</button>
           </div>
+          <button type="button" class="btn btn-secondary" id="btn-run-now" style="width: 100%; margin-top: 0.25rem;">
+            Forcer une analyse IA maintenant
+          </button>
         </form>
       </div>
     </section>
 
-    <!-- Holdings -->
+    <!-- Positions -->
     <section class="card">
       <div class="card-header">
         <h2 class="card-title">Positions Actuelles</h2>
+        <span class="kpi-sub" id="positions-count">0 position</span>
       </div>
       <div class="table-responsive">
         <table>
@@ -106,25 +110,25 @@
       </div>
     </section>
 
-    <!-- History -->
+    <!-- Historique des décisions -->
     <section class="card">
       <div class="card-header">
-        <h2 class="card-title">Historique des Décisions & Ordres</h2>
+        <h2 class="card-title">Décisions & Ordres de l'IA</h2>
       </div>
       <div class="table-responsive">
         <table>
           <thead>
             <tr>
               <th>Date</th>
-              <th>Type</th>
+              <th>Action</th>
               <th>Actif</th>
-              <th>Montant / Qté</th>
+              <th>Montant / %</th>
               <th>Prix</th>
-              <th>Raison / Source</th>
+              <th>Raison</th>
             </tr>
           </thead>
           <tbody id="history-body">
-            <tr><td colspan="6" class="empty-state">Chargement de l'historique...</td></tr>
+            <tr><td colspan="6" class="empty-state">Chargement des décisions...</td></tr>
           </tbody>
         </table>
       </div>
@@ -132,6 +136,6 @@
   </main>
 
   <div class="toast" id="toast"></div>
-  <script src="/static/app.js"></script>
+  <script src="/static/app.js?v=3"></script>
 </body>
 </html>
