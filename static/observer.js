@@ -10,8 +10,22 @@ function formatEurObs(val) {
   }).format(num);
 }
 
+function formatDateObs(raw) {
+  if (!raw) return "--";
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return String(raw);
+  return d.toLocaleString("fr-FR", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function renderObserverChart(labels, values) {
-  const ctx = document.getElementById("observerChart").getContext("2d");
+  const canvas = document.getElementById("observerChart");
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
 
   if (observerChart) {
     observerChart.data.labels = labels;
@@ -37,7 +51,7 @@ function renderObserverChart(labels, values) {
           borderWidth: 2.5,
           fill: true,
           tension: 0.35,
-          pointRadius: 3,
+          pointRadius: 2.5,
           pointBackgroundColor: "#10b981",
         },
       ],
@@ -67,42 +81,40 @@ function renderObserverChart(labels, values) {
 
 async function syncObserver() {
   try {
-    const [summaryRes, holdingsRes, historyRes] = await Promise.allSettled([
+    const [summaryRes, holdingsRes, historyRes, decisionsRes] = await Promise.allSettled([
       fetch("/api/summary"),
       fetch("/api/holdings"),
       fetch("/api/history"),
+      fetch("/api/decisions?limit=25"),
     ]);
 
     if (summaryRes.status === "fulfilled" && summaryRes.value.ok) {
       const s = await summaryRes.value.json();
-      const totalVal = s.total_value ?? s.portfolio_value ?? 0;
-      const cashVal = s.cash ?? s.cash_balance ?? 0;
-      const invested = s.total_invested ?? s.invested ?? 0;
-      const pnl = s.pnl ?? s.total_pnl ?? (invested > 0 ? totalVal - invested : 0);
-      const pnlPct = s.pnl_pct ?? (invested > 0 ? (pnl / invested) * 100 : 0);
+      const totalVal = Number(s.total ?? 0);
+      const cashVal = Number(s.cash ?? 0);
+      const deposited = Number(s.deposited ?? 0);
+      const pnl = Number(s.pnl_eur ?? totalVal - deposited);
+      const pnlPct = Number(s.pnl_pct ?? (deposited > 0 ? (pnl / deposited) * 100 : 0));
 
       document.getElementById("obs-total-value").textContent = formatEurObs(totalVal);
       document.getElementById("obs-cash-balance").textContent = formatEurObs(cashVal);
-      document.getElementById("obs-total-invested").textContent = `Capital engagé : ${formatEurObs(invested)}`;
+      document.getElementById("obs-total-deposited").textContent = `Capital déposé : ${formatEurObs(deposited)}`;
+      document.getElementById("obs-daily-budget").textContent = `Budget cycle : ${formatEurObs(s.daily_budget ?? 50)}`;
 
       const pnlEl = document.getElementById("obs-total-pnl");
       const pnlPctEl = document.getElementById("obs-total-pnl-pct");
       pnlEl.textContent = `${pnl >= 0 ? "+" : ""}${formatEurObs(pnl)}`;
       pnlEl.className = `kpi-value ${pnl >= 0 ? "text-green" : "text-red"}`;
-      pnlPctEl.textContent = `${pnlPct >= 0 ? "+" : ""}${Number(pnlPct).toFixed(2)} %`;
+      pnlPctEl.textContent = `${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)} %`;
       pnlPctEl.className = `kpi-sub ${pnlPct >= 0 ? "text-green" : "text-red"}`;
-
-      if (Array.isArray(s.equity_curve) && s.equity_curve.length > 0) {
-        renderObserverChart(
-          s.equity_curve.map((p) => p.date || p.timestamp),
-          s.equity_curve.map((p) => p.value ?? p.total_value)
-        );
-      }
     }
 
     if (holdingsRes.status === "fulfilled" && holdingsRes.value.ok) {
-      const hData = await holdingsRes.value.json();
-      const holdings = Array.isArray(hData) ? hData : hData.holdings ?? [];
+      const hRaw = await holdingsRes.value.json();
+      const holdings = Array.isArray(hRaw)
+        ? hRaw
+        : Object.entries(hRaw || {}).map(([sym, data]) => ({ symbol: sym, ...data }));
+
       document.getElementById("obs-positions-count").textContent = holdings.length;
       const tbody = document.getElementById("obs-holdings-body");
 
@@ -111,11 +123,11 @@ async function syncObserver() {
       } else {
         tbody.innerHTML = holdings
           .map((item) => {
-            const qty = Number(item.quantity ?? item.shares ?? 0);
-            const avg = Number(item.avg_price ?? item.entry_price ?? 0);
-            const cur = Number(item.current_price ?? item.price ?? avg);
-            const val = Number(item.market_value ?? qty * cur);
-            const posPnl = Number(item.pnl ?? val - qty * avg);
+            const qty = Number(item.qty ?? item.quantity ?? item.shares ?? 0);
+            const avg = Number(item.avg_price ?? item.buy_price ?? item.entry_price ?? 0);
+            const cur = Number(item.price ?? item.current_price ?? avg);
+            const val = Number(item.value ?? item.market_value ?? qty * cur);
+            const posPnl = Number(item.pnl_eur ?? item.pnl ?? val - qty * avg);
             const pnlClass = posPnl >= 0 ? "text-green" : "text-red";
 
             return `
@@ -134,43 +146,51 @@ async function syncObserver() {
     }
 
     if (historyRes.status === "fulfilled" && historyRes.value.ok) {
-      const histData = await historyRes.value.json();
-      const rows = Array.isArray(histData) ? histData : histData.history ?? histData.trades ?? [];
+      const histRaw = await historyRes.value.json();
+      const points = Array.isArray(histRaw) ? histRaw : histRaw.history ?? [];
+      if (points.length > 0) {
+        const ordered = [...points].sort(
+          (a, b) => new Date(a.ts || a.timestamp || a.date || 0) - new Date(b.ts || b.timestamp || b.date || 0)
+        );
+        renderObserverChart(
+          ordered.map((p) => formatDateObs(p.ts || p.timestamp || p.date)),
+          ordered.map((p) => Number(p.total ?? p.value ?? p.portfolio_value ?? 0))
+        );
+      }
+    }
+
+    if (decisionsRes.status === "fulfilled" && decisionsRes.value.ok) {
+      const decRaw = await decisionsRes.value.json();
+      const rows = Array.isArray(decRaw) ? decRaw : decRaw.decisions ?? [];
       const tbody = document.getElementById("obs-history-body");
 
       if (rows.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Aucun trade enregistré</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Aucune décision enregistrée</td></tr>`;
       } else {
         tbody.innerHTML = rows
-          .slice(0, 25)
           .map((t) => {
-            const side = (t.side || t.action || t.type || "BUY").toUpperCase();
-            const isBuy = side.includes("BUY") || side.includes("ACHAT");
-            const dateStr = t.timestamp || t.created_at || t.date || "--";
-            const amountInfo = t.amount_eur
-              ? formatEurObs(t.amount_eur)
-              : `${Number(t.quantity ?? t.amount ?? 0).toFixed(4)}`;
+            const action = String(t.action || t.side || t.decision || "HOLD").toUpperCase();
+            const isBuy = action.includes("BUY") || action.includes("ACHAT");
+            const isSell = action.includes("SELL") || action.includes("VENTE");
+            const pillClass = isBuy ? "pill-buy" : isSell ? "pill-sell" : "";
+
+            let amountLabel = "--";
+            if (t.amount_eur != null) amountLabel = formatEurObs(t.amount_eur);
+            else if (t.sell_pct != null) amountLabel = `${t.sell_pct} %`;
+            else if (t.qty != null) amountLabel = Number(t.qty).toFixed(4);
 
             return `
               <tr>
-                <td>${dateStr}</td>
-                <td><span class="pill ${isBuy ? "pill-buy" : "pill-sell"}">${side}</span></td>
+                <td>${formatDateObs(t.ts || t.timestamp || t.created_at || t.date)}</td>
+                <td><span class="pill ${pillClass}">${action}</span></td>
                 <td><strong>${t.symbol || "--"}</strong></td>
-                <td>${amountInfo}</td>
+                <td>${amountLabel}</td>
                 <td>${t.price ? formatEurObs(t.price) : "--"}</td>
-                <td style="color: var(--text-secondary);">${t.reason || t.source || "Alpha IA"}</td>
+                <td style="color: var(--text-secondary);">${t.reason || t.rationale || "Alpha IA"}</td>
               </tr>
             `;
           })
           .join("");
-
-        if (!observerChart && rows.some((r) => r.portfolio_value || r.total_value)) {
-          const ordered = [...rows].reverse();
-          renderObserverChart(
-            ordered.map((r) => r.timestamp || r.date || ""),
-            ordered.map((r) => r.portfolio_value ?? r.total_value)
-          );
-        }
       }
     }
 
