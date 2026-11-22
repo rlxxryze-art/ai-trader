@@ -1,63 +1,187 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Alpha IA – Mode Observateur</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <link rel="stylesheet" href="/static/observer.css">
-</head>
-<body>
-  <div class="bg" aria-hidden="true"></div>
-  <main class="wrap">
-    <header class="top">
-      <div class="brand">
-        <h1>ALPHA<span>_IA</span></h1>
-        <span class="badge"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>Observateur · lecture seule</span>
-      </div>
-      <div class="right">
-        <a class="back" href="/">← Dashboard</a>
-        <div class="live" role="status"><i id="dot" class="dot"></i><span id="sync">Connexion…</span></div>
-      </div>
-    </header>
+let observerChart = null;
 
-    <div class="layout">
-      <div class="col">
-        <section class="glass holo" aria-label="Valeur du portefeuille">
-          <div class="ring" aria-hidden="true"></div>
-          <div class="pts" id="pts" aria-hidden="true"></div>
-          <p class="h">Valeur du portefeuille <span id="ai" class="ai">–</span></p>
-          <div id="total" class="total">–</div>
-          <div id="pnl" class="pnl flat">–</div>
-          <div class="kpis">
-            <div class="kpi"><span>Cash</span><b id="k-cash">–</b></div>
-            <div class="kpi"><span>Investi</span><b id="k-inv">–</b></div>
-            <div class="kpi"><span>Déposé</span><b id="k-dep">–</b></div>
-          </div>
-        </section>
+function formatEurObs(val) {
+  const num = Number(val ?? 0);
+  return new Intl.NumberFormat("fr-FR", {
+    style: "currency",
+    currency: "EUR",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(num);
+}
 
-        <section class="glass chartbox">
-          <p class="h">Évolution</p>
-          <div class="cv"><canvas id="chart" role="img" aria-label="Graphique d’évolution de la valeur du portefeuille"></canvas></div>
-        </section>
+function renderObserverChart(labels, values) {
+  const ctx = document.getElementById("observerChart").getContext("2d");
 
-        <section>
-          <p class="h sec">Radar des actifs</p>
-          <div id="radar" class="radar"><p class="dim">&gt; Scan des positions…</p></div>
-        </section>
-      </div>
+  if (observerChart) {
+    observerChart.data.labels = labels;
+    observerChart.data.datasets[0].data = values;
+    observerChart.update();
+    return;
+  }
 
-      <aside class="glass feed" aria-label="Flux d’activité de l’IA">
-        <p class="h">Flux IA</p>
-        <div id="feed" class="feed-list" role="log" aria-live="off" tabindex="0"><p class="dim">&gt; Connexion au flux…</p></div>
-      </aside>
-    </div>
+  const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+  gradient.addColorStop(0, "rgba(16, 185, 129, 0.3)");
+  gradient.addColorStop(1, "rgba(16, 185, 129, 0.0)");
 
-    <p class="foot">Lecture seule · Simulation avec de l’argent virtuel · Aucun conseil en investissement</p>
-  </main>
-  <script src="/static/observer.js"></script>
-</body>
-</html>
+  observerChart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Portefeuille (€)",
+          data: values,
+          borderColor: "#10b981",
+          backgroundColor: gradient,
+          borderWidth: 2.5,
+          fill: true,
+          tension: 0.35,
+          pointRadius: 3,
+          pointBackgroundColor: "#10b981",
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+      },
+      scales: {
+        x: {
+          grid: { color: "rgba(39, 39, 48, 0.4)" },
+          ticks: { color: "#a1a1aa", maxTicksLimit: 8 },
+        },
+        y: {
+          grid: { color: "rgba(39, 39, 48, 0.4)" },
+          ticks: {
+            color: "#a1a1aa",
+            callback: (v) => v + " €",
+          },
+        },
+      },
+    },
+  });
+}
+
+async function syncObserver() {
+  try {
+    const [summaryRes, holdingsRes, historyRes] = await Promise.allSettled([
+      fetch("/api/summary"),
+      fetch("/api/holdings"),
+      fetch("/api/history"),
+    ]);
+
+    if (summaryRes.status === "fulfilled" && summaryRes.value.ok) {
+      const s = await summaryRes.value.json();
+      const totalVal = s.total_value ?? s.portfolio_value ?? 0;
+      const cashVal = s.cash ?? s.cash_balance ?? 0;
+      const invested = s.total_invested ?? s.invested ?? 0;
+      const pnl = s.pnl ?? s.total_pnl ?? (invested > 0 ? totalVal - invested : 0);
+      const pnlPct = s.pnl_pct ?? (invested > 0 ? (pnl / invested) * 100 : 0);
+
+      document.getElementById("obs-total-value").textContent = formatEurObs(totalVal);
+      document.getElementById("obs-cash-balance").textContent = formatEurObs(cashVal);
+      document.getElementById("obs-total-invested").textContent = `Capital engagé : ${formatEurObs(invested)}`;
+
+      const pnlEl = document.getElementById("obs-total-pnl");
+      const pnlPctEl = document.getElementById("obs-total-pnl-pct");
+      pnlEl.textContent = `${pnl >= 0 ? "+" : ""}${formatEurObs(pnl)}`;
+      pnlEl.className = `kpi-value ${pnl >= 0 ? "text-green" : "text-red"}`;
+      pnlPctEl.textContent = `${pnlPct >= 0 ? "+" : ""}${Number(pnlPct).toFixed(2)} %`;
+      pnlPctEl.className = `kpi-sub ${pnlPct >= 0 ? "text-green" : "text-red"}`;
+
+      if (Array.isArray(s.equity_curve) && s.equity_curve.length > 0) {
+        renderObserverChart(
+          s.equity_curve.map((p) => p.date || p.timestamp),
+          s.equity_curve.map((p) => p.value ?? p.total_value)
+        );
+      }
+    }
+
+    if (holdingsRes.status === "fulfilled" && holdingsRes.value.ok) {
+      const hData = await holdingsRes.value.json();
+      const holdings = Array.isArray(hData) ? hData : hData.holdings ?? [];
+      document.getElementById("obs-positions-count").textContent = holdings.length;
+      const tbody = document.getElementById("obs-holdings-body");
+
+      if (holdings.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Aucune position ouverte</td></tr>`;
+      } else {
+        tbody.innerHTML = holdings
+          .map((item) => {
+            const qty = Number(item.quantity ?? item.shares ?? 0);
+            const avg = Number(item.avg_price ?? item.entry_price ?? 0);
+            const cur = Number(item.current_price ?? item.price ?? avg);
+            const val = Number(item.market_value ?? qty * cur);
+            const posPnl = Number(item.pnl ?? val - qty * avg);
+            const pnlClass = posPnl >= 0 ? "text-green" : "text-red";
+
+            return `
+              <tr>
+                <td><strong>${item.symbol}</strong></td>
+                <td>${qty.toFixed(4)}</td>
+                <td>${formatEurObs(avg)}</td>
+                <td>${formatEurObs(cur)}</td>
+                <td>${formatEurObs(val)}</td>
+                <td class="${pnlClass}">${posPnl >= 0 ? "+" : ""}${formatEurObs(posPnl)}</td>
+              </tr>
+            `;
+          })
+          .join("");
+      }
+    }
+
+    if (historyRes.status === "fulfilled" && historyRes.value.ok) {
+      const histData = await historyRes.value.json();
+      const rows = Array.isArray(histData) ? histData : histData.history ?? histData.trades ?? [];
+      const tbody = document.getElementById("obs-history-body");
+
+      if (rows.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Aucun trade enregistré</td></tr>`;
+      } else {
+        tbody.innerHTML = rows
+          .slice(0, 25)
+          .map((t) => {
+            const side = (t.side || t.action || t.type || "BUY").toUpperCase();
+            const isBuy = side.includes("BUY") || side.includes("ACHAT");
+            const dateStr = t.timestamp || t.created_at || t.date || "--";
+            const amountInfo = t.amount_eur
+              ? formatEurObs(t.amount_eur)
+              : `${Number(t.quantity ?? t.amount ?? 0).toFixed(4)}`;
+
+            return `
+              <tr>
+                <td>${dateStr}</td>
+                <td><span class="pill ${isBuy ? "pill-buy" : "pill-sell"}">${side}</span></td>
+                <td><strong>${t.symbol || "--"}</strong></td>
+                <td>${amountInfo}</td>
+                <td>${t.price ? formatEurObs(t.price) : "--"}</td>
+                <td style="color: var(--text-secondary);">${t.reason || t.source || "Alpha IA"}</td>
+              </tr>
+            `;
+          })
+          .join("");
+
+        if (!observerChart && rows.some((r) => r.portfolio_value || r.total_value)) {
+          const ordered = [...rows].reverse();
+          renderObserverChart(
+            ordered.map((r) => r.timestamp || r.date || ""),
+            ordered.map((r) => r.portfolio_value ?? r.total_value)
+          );
+        }
+      }
+    }
+
+    const now = new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    document.getElementById("observer-sync").textContent = `Live • ${now}`;
+  } catch (err) {
+    console.error("Erreur sync observer:", err);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  syncObserver();
+  setInterval(syncObserver, 30000);
+});
